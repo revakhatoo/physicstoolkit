@@ -14,25 +14,42 @@ st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="
 # --- CUSTOM CSS FOR MOBILE UX ---
 st.markdown("""
 <style>
-/* 1. Force "Navigation" text next to the left mobile hamburger menu */
+/* 1. Prevent Streamlit from clipping the injected text by forcing the left button to expand */
+[data-testid="collapsedControl"] {
+    width: auto !important;
+    padding-right: 15px !important;
+    overflow: visible !important;
+}
+
+/* 2. Inject "Navigation" next to the left arrows */
 [data-testid="collapsedControl"]::after {
-    content: " Navigation";
-    margin-left: 10px;
-    font-size: 1.2rem;
-    font-weight: 600;
-    vertical-align: middle;
+    content: " Navigation" !important;
+    margin-left: 5px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    vertical-align: middle !important;
 }
 
-/* 2. Force "Settings" text next to the right 3-dot menu */
+/* 3. Strip text from right-side buttons just in case to prevent duplicates */
+[data-testid="stHeaderActionElements"] button::after {
+    content: none !important;
+}
+
+/* 4. Prevent clipping on the Settings button and inject text */
+[data-testid="stHeaderActionElements"] button:last-child {
+    width: auto !important;
+    padding-right: 10px !important;
+    overflow: visible !important;
+}
 [data-testid="stHeaderActionElements"] button:last-child::after {
-    content: " Settings";
-    margin-left: 5px;
-    font-size: 1.2rem;
-    font-weight: 600;
-    vertical-align: middle;
+    content: " Settings" !important;
+    margin-left: 5px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    vertical-align: middle !important;
 }
 
-/* 3. Force scrollbars to be thicker and always visible on tables */
+/* 5. Force scrollbars to be thicker and always visible on tables */
 ::-webkit-scrollbar {
     height: 12px !important;
 }
@@ -259,15 +276,12 @@ elif tool == "Formula based":
     
     with input_col:
         
-        # --- REORDERED: 1. Calculation Method ---
         st.markdown("### Calculation Method")
         calc_method = st.radio("Method", ["Linear Propagation (Taylor)", "Monte Carlo Simulation"], label_visibility="collapsed")
         
-        # --- REORDERED: 2. Input Parameters ---
         st.markdown("### 1. Input Parameters")
         formula_input = st.text_input("Formula (e.g., d / t)", "d / t")
         
-        # --- REORDERED: 3. Syntax Guide ---
         with st.expander("💡 Formula Syntax Guide"):
             st.markdown("""
             **Basic Operations:**
