@@ -221,7 +221,6 @@ elif tool == "Formula based":
         variables = {}
         if valid_formula and symbols_list:
             st.markdown("### Variables")
-            # Added an extra column here to show the variable name
             col_sym, col1, col2, col3 = st.columns([0.5, 1, 1, 1])
             col_sym.markdown("**Var**")
             col1.markdown("**Value**")
@@ -229,8 +228,9 @@ elif tool == "Formula based":
             col3.markdown("**Unit**")
             
             for sym in symbols_list:
-                # Display the symbol name next to the inputs
-                col_sym.markdown(f"<br>**{sym}**", unsafe_allow_html=True)
+                # FIXED ALIGNMENT: Using a CSS div to perfectly match Streamlit's input box padding
+                col_sym.markdown(f"<div style='margin-top: 8px; font-weight: bold;'>{sym}</div>", unsafe_allow_html=True)
+                
                 val = col1.number_input(f"{sym} val", value=1.0, key=f"val_{sym}", label_visibility="collapsed")
                 unc = col2.number_input(f"{sym} unc", value=0.1, min_value=0.0, format="%.4f", key=f"unc_{sym}", label_visibility="collapsed")
                 unit = col3.text_input(f"{sym} unit", value="", key=f"unit_{sym}", label_visibility="collapsed")
@@ -277,7 +277,6 @@ elif tool == "Formula based":
                         latex_deriv = sp.latex(data['symbolic'])
                         st.latex(f"\\frac{{\\partial}}{{\\partial {sym}}} = {latex_deriv}")
                         
-                        # FIXED: Changed the phrasing to accurately reflect the math
                         st.markdown(f"<p style='text-align: center'>Derivative value = {data['evaluated']:.4g}</p>", unsafe_allow_html=True)
                         
                         with st.expander(f"Show Raw LaTeX for {sym} Derivative"):
