@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import sympy as sp
+import io
 
 # Connect to your backend brain
 from engine import get_final_unit, format_sig_figs, propagate_uncertainty, run_monte_carlo
@@ -29,20 +30,24 @@ if tool == "Reading based":
         default_data = pd.DataFrame({"Measurement (x)": [10.00, 20.50, 35.67, 27.30]})
         edited_df = st.data_editor(default_data, num_rows="dynamic", use_container_width=True)
         
-        # Calculate stats
-        if not edited_df.empty and len(edited_df) > 1:
-            mean_val = edited_df["Measurement (x)"].mean()
-            std_error = edited_df["Measurement (x)"].std(ddof=1) / np.sqrt(len(edited_df))
+        # Clean data so the UI doesn't vanish while editing
+        clean_df = edited_df.dropna()
+        
+        if not clean_df.empty and len(clean_df) > 1:
+            mean_val = clean_df["Measurement (x)"].mean()
+            std_dev = clean_df["Measurement (x)"].std(ddof=1)
+            std_error = std_dev / np.sqrt(len(clean_df))
             
-            st.success(f"**Mean:** {mean_val:.2f}")
-            st.info(f"**Standard Error (±):** {std_error:.2f}")
+            st.success(f"**Mean ($\\bar{{x}}$):** {mean_val:.2f}")
+            st.info(f"**Std Deviation ($\\sigma$):** {std_dev:.2f}")
+            st.info(f"**Standard Error ($\\pm$):** {std_error:.2f}")
         else:
             st.warning("Please enter at least two data points.")
-            mean_val, std_error = 0, 0
+            mean_val, std_dev, std_error = 0, 0, 0
         
     with display_col:
-        if not edited_df.empty and len(edited_df) > 1:
-            analysis_df = edited_df.copy()
+        if not clean_df.empty and len(clean_df) > 1:
+            analysis_df = clean_df.copy()
             analysis_df["Mean (x̄)"] = mean_val
             analysis_df["Deviation (x_i - x̄)"] = analysis_df["Measurement (x)"] - mean_val
             analysis_df["Squared Deviation ((x_i - x̄)²)"] = analysis_df["Deviation (x_i - x̄)"]**2
@@ -57,15 +62,23 @@ if tool == "Reading based":
             )
             
             st.markdown("---")
-            st.latex(r"Standard Error (SE) = \frac{\sigma}{\sqrt{n}} = \frac{\sqrt{\frac{\sum(x_i - \bar{x})^2}{n-1}}}{\sqrt{n}} \approx " + f"{std_error:.2f}")
             
-            with st.expander("Show Raw LaTeX (For Reports)"):
-                st.code(r"\text{Standard Error (SE)} = \frac{\sigma}{\sqrt{n}}", language="latex")
+            # Show standard deviation explicitly
+            st.markdown("##### Standard Deviation ($\\sigma$)")
+            st.latex(r"\sigma = \sqrt{\frac{\sum(x_i - \bar{x})^2}{n-1}} \approx " + f"{std_dev:.2f}")
+            with st.expander("Show Raw LaTeX for Standard Deviation"):
+                st.code(r"\sigma = \sqrt{\frac{\sum(x_i - \bar{x})^2}{n-1}}", language="latex")
+
+            st.markdown("##### Standard Error (SE)")
+            st.latex(r"SE = \frac{\sigma}{\sqrt{n}} \approx " + f"{std_error:.2f}")
+            with st.expander("Show Raw LaTeX for Standard Error"):
+                st.code(r"SE = \frac{\sigma}{\sqrt{n}}", language="latex")
             
             st.markdown("##### Final Reported Result:")
-            # Use engine's sig fig formatter
             val_str, unc_str = format_sig_figs(mean_val, std_error)
             st.success(f"{val_str} ± {unc_str}")
+            with st.expander("Show Raw LaTeX for Final Result"):
+                st.code(f"{val_str} \\pm {unc_str}", language="latex")
 
 # ==========================================
 # TOOL 2: GRAPHICAL ANALYSIS
@@ -87,12 +100,16 @@ elif tool == "Graphical Analysis":
         st.markdown("### Plot Labels & Legends")
         x_label = st.text_input("X-Axis Label", "X axis")
         y_label = st.text_input("Y-Axis Label", "Y axis")
+        data_point_label = st.text_input("Data Points Legend", "Raw Data")
+        best_fit_label = st.text_input("Best Fit Legend", "Best Fit")
         
     with display_col:
         metrics_col, plot_col = st.columns([1, 2])
         
-        x = edited_graph_df["X Values"].dropna().values
-        y = edited_graph_df["Y Values"].dropna().values
+        # Clean data so the graph doesn't vanish while editing
+        clean_graph_df = edited_graph_df.dropna()
+        x = clean_graph_df["X Values"].values
+        y = clean_graph_df["Y Values"].values
         
         if len(x) > 1 and len(x) == len(y):
             # Calculate simple regression
@@ -101,7 +118,6 @@ elif tool == "Graphical Analysis":
             slope_err = np.sqrt(cov[0][0])
             intercept_err = np.sqrt(cov[1][1])
             
-            # Calculate R^2
             correlation_matrix = np.corrcoef(x, y)
             r_squared = correlation_matrix[0,1]**2
             
@@ -121,20 +137,32 @@ elif tool == "Graphical Analysis":
             with plot_col:
                 st.markdown("#### Scatter Plot")
                 fig, ax = plt.subplots()
-                ax.scatter(x, y, label="Raw Data", color="#3182ce")
-                ax.plot(x, slope*x + intercept, color="#e53e3e", linestyle="--", label="Best Fit")
+                ax.scatter(x, y, label=data_point_label, color="#3182ce")
+                ax.plot(x, slope*x + intercept, color="#e53e3e", linestyle="--", label=best_fit_label)
                 ax.set_xlabel(x_label)
                 ax.set_ylabel(y_label)
                 ax.legend()
                 ax.grid(True, linestyle=":", alpha=0.7)
                 st.pyplot(fig)
+                
+                # Save plot to buffers for download
+                buf_png = io.BytesIO()
+                fig.savefig(buf_png, format="png", bbox_inches="tight", dpi=300)
+                buf_pdf = io.BytesIO()
+                fig.savefig(buf_pdf, format="pdf", bbox_inches="tight")
+                
+                dl_col1, dl_col2 = st.columns(2)
+                dl_col1.download_button(label="📥 Download PNG", data=buf_png.getvalue(), file_name="graph.png", mime="image/png")
+                dl_col2.download_button(label="📥 Download PDF", data=buf_pdf.getvalue(), file_name="graph.pdf", mime="application/pdf")
+        else:
+            st.info("Awaiting valid matching data points to generate the plot...")
 
 # ==========================================
 # TOOL 3: FORMULA BASED
 # ==========================================
 elif tool == "Formula based":
     st.title("Uncertainty Analysis")
-    st.markdown("Enter your formula and measurements below to see the step-by-step derivation.")
+    st.markdown("Enter your formula and measurements below to evaluate error propagation.")
     
     input_col, display_col = st.columns([1, 2])
     
@@ -142,7 +170,7 @@ elif tool == "Formula based":
         st.markdown("### 1. Input Parameters")
         formula_input = st.text_input("Formula (e.g., d / t)", "d / t")
         
-        # Dynamically extract variables from the formula
+        # Dynamically extract variables
         try:
             expr = sp.sympify(formula_input)
             symbols_list = [str(sym) for sym in expr.free_symbols]
@@ -161,56 +189,88 @@ elif tool == "Formula based":
             col3.markdown("**Unit**")
             
             for sym in symbols_list:
-                # Provide distinct input boxes for each detected variable
                 val = col1.number_input(f"{sym} val", value=1.0, key=f"val_{sym}", label_visibility="collapsed")
                 unc = col2.number_input(f"{sym} unc", value=0.1, min_value=0.0, format="%.4f", key=f"unc_{sym}", label_visibility="collapsed")
                 unit = col3.text_input(f"{sym} unit", value="", key=f"unit_{sym}", label_visibility="collapsed")
-                
                 variables[sym] = {'val': val, 'uncert': unc, 'unit': unit}
                 
+        st.markdown("### Calculation Method")
+        calc_method = st.radio("Method", ["Linear Propagation (Taylor)", "Monte Carlo Simulation"], label_visibility="collapsed")
         calc_button = st.button("Calculate", type="primary")
 
     with display_col:
         if valid_formula and symbols_list and calc_button:
-            col_res, col_derive = st.columns([1, 1])
-            
-            # Connect to engine.py
-            final_val, final_unc, step_data = propagate_uncertainty(formula_input, variables)
+            # We always run the linear derivation to get the step-by-step breakdown
+            linear_val, linear_unc, step_data = propagate_uncertainty(formula_input, variables)
             final_unit = get_final_unit(formula_input, variables)
-            val_str, unc_str = format_sig_figs(final_val, final_unc)
             
-            with col_res:
-                st.markdown("### Final Result")
-                st.success(f"**Result:** {val_str} ± {unc_str} {final_unit}")
+            if calc_method == "Linear Propagation (Taylor)":
+                col_res, col_derive = st.columns([1, 1])
+                val_str, unc_str = format_sig_figs(linear_val, linear_unc)
+                
+                with col_res:
+                    st.markdown("### Final Result")
+                    st.success(f"**Result:** {val_str} ± {unc_str} {final_unit}")
+                    
+                    with st.expander("Show Raw LaTeX (For Reports)"):
+                        st.code(f"{val_str} \\pm {unc_str} \\text{{ {final_unit}}}", language="latex")
+                        
+                    st.markdown("### Uncertainty Contributions")
+                    total_variance = sum([data['contribution'] for data in step_data.values()])
+                    if total_variance > 0:
+                        for sym, data in step_data.items():
+                            percentage = data['contribution'] / total_variance
+                            st.markdown(f"**{sym} contribution: {percentage*100:.1f}%**")
+                            st.progress(float(percentage))
+                    
+                with col_derive:
+                    st.markdown("### Step-by-Step Derivation")
+                    for sym, data in step_data.items():
+                        st.markdown(f"Partial derivative with respect to **{sym}**:")
+                        latex_deriv = sp.latex(data['symbolic'])
+                        st.latex(f"\\frac{{\\partial}}{{\\partial {sym}}} = {latex_deriv}")
+                        st.markdown(f"<p style='text-align: center'>Evaluated at {sym} = {data['evaluated']:.4g}</p>", unsafe_allow_html=True)
+                        st.markdown("---")
+            
+            elif calc_method == "Monte Carlo Simulation":
+                # Run the simulation
+                mc_mean, mc_std, results, median, lower, upper = run_monte_carlo(formula_input, variables)
+                
+                # Nonlinearity Warning Check (Tolerance > 5%)
+                if linear_val != 0 and linear_unc != 0:
+                    val_diff = abs(linear_val - mc_mean) / abs(linear_val)
+                    unc_diff = abs(linear_unc - mc_std) / linear_unc
+                    if val_diff > 0.05 or unc_diff > 0.05:
+                        st.warning("⚠️ **High Non-Linearity Detected:** The Monte Carlo standard deviation differs from the linear Taylor approximation. The formula may be highly sensitive to these uncertainties. Trust the Monte Carlo distribution.")
+                
+                mc_val_str, mc_unc_str = format_sig_figs(mc_mean, mc_std)
+                
+                st.markdown("### Monte Carlo Final Result (10,000 Iterations)")
+                st.success(f"**Result:** {mc_val_str} ± {mc_unc_str} {final_unit}")
                 
                 with st.expander("Show Raw LaTeX (For Reports)"):
-                    st.code(f"{val_str} \\pm {unc_str} \\text{{ {final_unit}}}", language="latex")
-                    
-                st.markdown("### Uncertainty Contributions")
-                # Calculate total variance to find percentages
-                total_variance = sum([data['contribution'] for data in step_data.values()])
+                    st.code(f"{mc_val_str} \\pm {mc_unc_str} \\text{{ {final_unit}}}", language="latex")
                 
-                if total_variance > 0:
-                    for sym, data in step_data.items():
-                        percentage = data['contribution'] / total_variance
-                        st.markdown(f"**{sym} contribution: {percentage*100:.1f}%**")
-                        st.progress(float(percentage))
+                st.markdown(f"**Median:** {median:.4g} | **Asymmetric Bounds:** +{upper:.4g} / -{lower:.4g}")
                 
-            with col_derive:
-                st.markdown("### Step-by-Step Derivation")
+                # Plot Histogram
+                fig_mc, ax_mc = plt.subplots()
+                ax_mc.hist(results, bins=50, color="#3182ce", edgecolor="black", alpha=0.7)
+                ax_mc.axvline(mc_mean, color="#e53e3e", linestyle="dashed", linewidth=2, label=f"Mean: {mc_mean:.4g}")
+                ax_mc.set_xlabel(f"Calculated Result ({final_unit})")
+                ax_mc.set_ylabel("Frequency")
+                ax_mc.set_title("Monte Carlo Propagation Distribution")
+                ax_mc.legend()
+                ax_mc.grid(True, linestyle=":", alpha=0.7)
                 
-                for sym, data in step_data.items():
-                    st.markdown(f"Partial derivative with respect to **{sym}**:")
-                    # Convert sympy partial derivative to LaTeX
-                    latex_deriv = sp.latex(data['symbolic'])
-                    st.latex(f"\\frac{{\\partial}}{{\\partial {sym}}} = {latex_deriv}")
-                    st.markdown(f"<p style='text-align: center'>Evaluated at {sym} = {data['evaluated']:.4g}</p>", unsafe_allow_html=True)
-                    st.markdown("---")
+                st.pyplot(fig_mc)
                 
-                # Optional Monte Carlo Check hook
-                with st.expander("Advanced: Run Monte Carlo Verification"):
-                    st.info("Running 10,000 simulations based on your inputs...")
-                    mc_mean, mc_std, results, median, lower, upper = run_monte_carlo(formula_input, variables)
-                    mc_val_str, mc_unc_str = format_sig_figs(mc_mean, mc_std)
-                    st.write(f"**Monte Carlo Result:** {mc_val_str} ± {mc_unc_str}")
-                    st.write(f"Asymmetric Bounds: +{upper:.4g} / -{lower:.4g}")
+                # Save histogram buffers
+                buf_mc_png = io.BytesIO()
+                fig_mc.savefig(buf_mc_png, format="png", bbox_inches="tight", dpi=300)
+                buf_mc_pdf = io.BytesIO()
+                fig_mc.savefig(buf_mc_pdf, format="pdf", bbox_inches="tight")
+                
+                dl_col1, dl_col2 = st.columns(2)
+                dl_col1.download_button(label="📥 Download Histogram (PNG)", data=buf_mc_png.getvalue(), file_name="mc_histogram.png", mime="image/png")
+                dl_col2.download_button(label="📥 Download Histogram (PDF)", data=buf_mc_pdf.getvalue(), file_name="mc_histogram.pdf", mime="application/pdf")
