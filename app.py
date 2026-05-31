@@ -184,6 +184,30 @@ elif tool == "Formula based":
         st.markdown("### 1. Input Parameters")
         formula_input = st.text_input("Formula (e.g., d / t)", "d / t")
         
+        # --- NEW SYNTAX GUIDE EXPANDER ---
+        with st.expander("💡 Formula Syntax Guide"):
+            st.markdown("""
+            **Basic Operations:**
+            * Addition / Subtraction: `x + y` / `x - y`
+            * Multiplication / Division: `x * y` / `x / y`
+            * Powers: `x**2` *(Do not use x^2)*
+            
+            **Trigonometry & Logarithms:**
+            * Sine / Cosine / Tangent: `sin(x)`, `cos(x)`, `tan(x)`
+            * Natural Log (ln): `log(x)`
+            * Log base 10: `log(x, 10)`
+            * Exponential ($e^x$): `exp(x)`
+            
+            **Roots & Constants:**
+            * Square Root: `sqrt(x)`
+            * Pi ($\pi$): `pi`
+            * Euler's number ($e$): `E`
+            
+            **Calculus (Advanced):**
+            * Derivative: `diff(x**2, x)`
+            * Integral: `integrate(x**2, x)`
+            """)
+        
         # Dynamically extract variables
         try:
             expr = sp.sympify(formula_input)
@@ -197,12 +221,16 @@ elif tool == "Formula based":
         variables = {}
         if valid_formula and symbols_list:
             st.markdown("### Variables")
-            col1, col2, col3 = st.columns(3)
+            # Added an extra column here to show the variable name
+            col_sym, col1, col2, col3 = st.columns([0.5, 1, 1, 1])
+            col_sym.markdown("**Var**")
             col1.markdown("**Value**")
             col2.markdown("**Uncert (±)**")
             col3.markdown("**Unit**")
             
             for sym in symbols_list:
+                # Display the symbol name next to the inputs
+                col_sym.markdown(f"<br>**{sym}**", unsafe_allow_html=True)
                 val = col1.number_input(f"{sym} val", value=1.0, key=f"val_{sym}", label_visibility="collapsed")
                 unc = col2.number_input(f"{sym} unc", value=0.1, min_value=0.0, format="%.4f", key=f"unc_{sym}", label_visibility="collapsed")
                 unit = col3.text_input(f"{sym} unit", value="", key=f"unit_{sym}", label_visibility="collapsed")
@@ -248,7 +276,9 @@ elif tool == "Formula based":
                         st.markdown(f"Partial derivative with respect to **{sym}**:")
                         latex_deriv = sp.latex(data['symbolic'])
                         st.latex(f"\\frac{{\\partial}}{{\\partial {sym}}} = {latex_deriv}")
-                        st.markdown(f"<p style='text-align: center'>Evaluated at {sym} = {data['evaluated']:.4g}</p>", unsafe_allow_html=True)
+                        
+                        # FIXED: Changed the phrasing to accurately reflect the math
+                        st.markdown(f"<p style='text-align: center'>Derivative value = {data['evaluated']:.4g}</p>", unsafe_allow_html=True)
                         
                         with st.expander(f"Show Raw LaTeX for {sym} Derivative"):
                             st.code(f"\\frac{{\\partial f}}{{\\partial {sym}}} = {latex_deriv}", language="latex")
