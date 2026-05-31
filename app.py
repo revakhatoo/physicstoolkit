@@ -15,21 +15,27 @@ st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="
 st.markdown("""
 <style>
 /* 1. Force "Navigation" text next to the left mobile hamburger menu */
-[data-testid="collapsedControl"]::after {
-    content: " Navigation";
+button[data-testid="collapsedControl"]::after,
+header div:first-child button[kind="headerNoPadding"]::after,
+header button:first-of-type::after {
+    content: " Navigation" !important;
     margin-left: 10px;
     font-size: 1.2rem;
     font-weight: 600;
     vertical-align: middle;
+    display: inline-block;
+    white-space: nowrap;
 }
 
 /* 2. Force "Settings" text next to the right 3-dot menu */
 [data-testid="stHeaderActionElements"] button:last-child::after {
-    content: " Settings";
+    content: " Settings" !important;
     margin-left: 5px;
     font-size: 1.2rem;
     font-weight: 600;
     vertical-align: middle;
+    display: inline-block;
+    white-space: nowrap;
 }
 
 /* 3. Force scrollbars to be thicker and always visible on tables */
