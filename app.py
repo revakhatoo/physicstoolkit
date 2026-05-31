@@ -228,8 +228,8 @@ elif tool == "Formula based":
             col3.markdown("**Unit**")
             
             for sym in symbols_list:
-                # FIXED ALIGNMENT: Using a CSS div to perfectly match Streamlit's input box padding
-                col_sym.markdown(f"<div style='margin-top: 8px; font-weight: bold;'>{sym}</div>", unsafe_allow_html=True)
+                # PERFECT ALIGNMENT: CSS Flexbox to match Streamlit's 40px input box height exactly
+                col_sym.markdown(f"<div style='height: 40px; display: flex; align-items: center; font-weight: bold;'>{sym}</div>", unsafe_allow_html=True)
                 
                 val = col1.number_input(f"{sym} val", value=1.0, key=f"val_{sym}", label_visibility="collapsed")
                 unc = col2.number_input(f"{sym} unc", value=0.1, min_value=0.0, format="%.4f", key=f"unc_{sym}", label_visibility="collapsed")
