@@ -14,32 +14,22 @@ st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="
 # --- CUSTOM CSS FOR MOBILE UX ---
 st.markdown("""
 <style>
-/* 1. Force "Navigation" text ONLY next to the left menu arrows */
-header > div:first-child button::after,
+/* 1. Force "Navigation" text next to the left mobile hamburger menu */
 [data-testid="collapsedControl"]::after {
-    content: " Navigation" !important;
+    content: " Navigation";
     margin-left: 10px;
     font-size: 1.2rem;
     font-weight: 600;
     vertical-align: middle;
-    display: inline-block;
-    white-space: nowrap;
-}
-
-/* Strip any accidental text from the right-side action buttons */
-[data-testid="stHeaderActionElements"] button::after {
-    content: none !important;
 }
 
 /* 2. Force "Settings" text next to the right 3-dot menu */
 [data-testid="stHeaderActionElements"] button:last-child::after {
-    content: " Settings" !important;
+    content: " Settings";
     margin-left: 5px;
     font-size: 1.2rem;
     font-weight: 600;
     vertical-align: middle;
-    display: inline-block;
-    white-space: nowrap;
 }
 
 /* 3. Force scrollbars to be thicker and always visible on tables */
@@ -269,12 +259,15 @@ elif tool == "Formula based":
     
     with input_col:
         
+        # --- REORDERED: 1. Calculation Method ---
         st.markdown("### Calculation Method")
         calc_method = st.radio("Method", ["Linear Propagation (Taylor)", "Monte Carlo Simulation"], label_visibility="collapsed")
         
+        # --- REORDERED: 2. Input Parameters ---
         st.markdown("### 1. Input Parameters")
         formula_input = st.text_input("Formula (e.g., d / t)", "d / t")
         
+        # --- REORDERED: 3. Syntax Guide ---
         with st.expander("💡 Formula Syntax Guide"):
             st.markdown("""
             **Basic Operations:**
