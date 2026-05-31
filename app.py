@@ -11,6 +11,35 @@ from engine import get_final_unit, format_sig_figs, propagate_uncertainty, run_m
 # 1. Lock the sidebar to always open
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="Uncertainty Analysis")
 
+# --- NEW: CUSTOM CSS FOR MOBILE UX ---
+st.markdown("""
+<style>
+/* 1. Add "Navigation" text next to the mobile menu arrows */
+[data-testid="collapsedControl"]::after {
+    content: "Navigation";
+    margin-left: 10px;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+/* 2. Force scrollbars to be thicker and always visible on tables */
+::-webkit-scrollbar {
+    height: 12px !important;
+}
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05); 
+    border-radius: 6px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2); 
+    border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4); 
+}
+</style>
+""", unsafe_allow_html=True)
+
 # 2. Setup the Navigation in the sidebar
 st.sidebar.title("Navigation")
 st.sidebar.markdown("Select Tool:")
@@ -27,25 +56,18 @@ if tool == "Reading based":
     with input_col:
         st.markdown("### Input Readings")
         
-        with st.expander("⚙️ Customize Table Headings"):
-            col1_name = st.text_input("Measurement Column", "Measurement (x)")
-            col2_name = st.text_input("Mean Column", "Mean (x̄)")
-            col3_name = st.text_input("Deviation Column", "Deviation (x_i - x̄)")
-            col4_name = st.text_input("Squared Deviation Column", "Squared Deviation ((x_i - x̄)²)")
-            
-        # Default data dynamically uses the custom name
-        default_data = pd.DataFrame({col1_name: [10.00, 20.50, 35.67, 27.30]})
+        # Default data always stays generic for input
+        default_data = pd.DataFrame({"Measurement (x)": [10.00, 20.50, 35.67, 27.30]})
         edited_df = st.data_editor(default_data, num_rows="dynamic", use_container_width=True)
         
-        # --- NEW: Unit Input ---
         unit_input = st.text_input("Unit (optional)", "")
         
         # Clean data so the UI doesn't vanish while editing
         clean_df = edited_df.dropna()
         
         if not clean_df.empty and len(clean_df) > 1:
-            mean_val = clean_df[col1_name].mean()
-            std_dev = clean_df[col1_name].std(ddof=1)
+            mean_val = clean_df["Measurement (x)"].mean()
+            std_dev = clean_df["Measurement (x)"].std(ddof=1)
             std_error = std_dev / np.sqrt(len(clean_df))
             
             st.success(f"**Mean:** {mean_val:.2f}")
@@ -57,8 +79,23 @@ if tool == "Reading based":
         
     with display_col:
         if not clean_df.empty and len(clean_df) > 1:
+            
+            # --- MOVED: Customizer is now on top of the 2nd table ---
+            with st.expander("⚙️ Customize Table Headings"):
+                col1_name = st.text_input("Measurement Column", "Measurement (x)")
+                col2_name = st.text_input("Mean Column", "Mean (x̄)")
+                col3_name = st.text_input("Deviation Column", "Deviation (x_i - x̄)")
+                col4_name = st.text_input("Squared Deviation Column", "Squared Deviation ((x_i - x̄)²)")
+            
+            # --- NEW: Mobile Swipe Hint ---
+            st.info("👉 **Mobile tip:** Swipe the table left and right to view all columns.")
+            
             analysis_df = clean_df.copy()
-            # Use the custom column names for the analysis table
+            
+            # Rename the input column to the custom name
+            analysis_df.rename(columns={"Measurement (x)": col1_name}, inplace=True)
+            
+            # Build the rest using the custom names
             analysis_df[col2_name] = mean_val
             analysis_df[col3_name] = analysis_df[col1_name] - mean_val
             analysis_df[col4_name] = analysis_df[col3_name]**2
@@ -70,7 +107,6 @@ if tool == "Reading based":
             ax_tbl.axis('off')
             ax_tbl.axis('tight')
             
-            # Format data to 2 decimal places for the image
             display_data = analysis_df.round(2).astype(str)
             tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, loc='center', cellLoc='center')
             tbl.scale(1, 1.5) 
