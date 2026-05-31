@@ -75,7 +75,10 @@ if tool == "Reading based":
                 st.code(r"SE = \frac{\sigma}{\sqrt{n}}", language="latex")
             
             st.markdown("##### Final Reported Result:")
-            val_str, unc_str = format_sig_figs(mean_val, std_error)
+            # Bypassing format_sig_figs to show exact UI matching decimals
+            val_str = f"{mean_val:.2f}"
+            unc_str = f"{std_error:.2f}"
+            
             st.success(f"{val_str} ± {unc_str}")
             with st.expander("Show Raw LaTeX for Final Result"):
                 st.code(f"{val_str} \\pm {unc_str}", language="latex")
@@ -106,23 +109,22 @@ elif tool == "Graphical Analysis":
     with display_col:
         metrics_col, plot_col = st.columns([1, 2])
         
-        # Clean data so the graph doesn't vanish while editing
+        # Clean data but DO NOT hide the UI if it's empty
         clean_graph_df = edited_graph_df.dropna()
         x = clean_graph_df["X Values"].values
         y = clean_graph_df["Y Values"].values
         
-        if len(x) > 1 and len(x) == len(y):
-            # Calculate simple regression
-            coeffs, cov = np.polyfit(x, y, 1, cov=True)
-            slope, intercept = coeffs
-            slope_err = np.sqrt(cov[0][0])
-            intercept_err = np.sqrt(cov[1][1])
-            
-            correlation_matrix = np.corrcoef(x, y)
-            r_squared = correlation_matrix[0,1]**2
-            
-            with metrics_col:
-                st.markdown("#### Regression Results")
+        with metrics_col:
+            st.markdown("#### Regression Results")
+            if len(x) > 1 and len(x) == len(y):
+                # Calculate simple regression
+                coeffs, cov = np.polyfit(x, y, 1, cov=True)
+                slope, intercept = coeffs
+                slope_err = np.sqrt(cov[0][0])
+                intercept_err = np.sqrt(cov[1][1])
+                
+                correlation_matrix = np.corrcoef(x, y)
+                r_squared = correlation_matrix[0,1]**2
                 
                 m_str, m_err_str = format_sig_figs(slope, slope_err)
                 c_str, c_err_str = format_sig_figs(intercept, intercept_err)
@@ -133,19 +135,33 @@ elif tool == "Graphical Analysis":
                 
                 st.latex(r"y = mx + c")
                 st.latex(f"y = ({m_str})x + ({c_str})")
-            
-            with plot_col:
-                st.markdown("#### Scatter Plot")
-                fig, ax = plt.subplots()
-                ax.scatter(x, y, label=data_point_label, color="#3182ce")
-                ax.plot(x, slope*x + intercept, color="#e53e3e", linestyle="--", label=best_fit_label)
-                ax.set_xlabel(x_label)
-                ax.set_ylabel(y_label)
-                ax.legend()
-                ax.grid(True, linestyle=":", alpha=0.7)
-                st.pyplot(fig)
+            else:
+                st.info("Awaiting 2+ complete data points for regression...")
                 
-                # Save plot to buffers for download
+        with plot_col:
+            st.markdown("#### Scatter Plot")
+            fig, ax = plt.subplots()
+            
+            # Always plot whatever points are valid
+            if len(x) > 0:
+                ax.scatter(x, y, label=data_point_label, color="#3182ce")
+            
+            # Only plot the line if we have enough points
+            if len(x) > 1 and len(x) == len(y):
+                ax.plot(x, slope*x + intercept, color="#e53e3e", linestyle="--", label=best_fit_label)
+                
+            ax.set_xlabel(x_label)
+            ax.set_ylabel(y_label)
+            
+            # Only show legend if we actually plotted something
+            if len(x) > 0:
+                ax.legend()
+                
+            ax.grid(True, linestyle=":", alpha=0.7)
+            st.pyplot(fig)
+            
+            # Only allow downloads if a valid line exists
+            if len(x) > 1 and len(x) == len(y):
                 buf_png = io.BytesIO()
                 fig.savefig(buf_png, format="png", bbox_inches="tight", dpi=300)
                 buf_pdf = io.BytesIO()
@@ -154,8 +170,6 @@ elif tool == "Graphical Analysis":
                 dl_col1, dl_col2 = st.columns(2)
                 dl_col1.download_button(label="📥 Download PNG", data=buf_png.getvalue(), file_name="graph.png", mime="image/png")
                 dl_col2.download_button(label="📥 Download PDF", data=buf_pdf.getvalue(), file_name="graph.pdf", mime="application/pdf")
-        else:
-            st.info("Awaiting valid matching data points to generate the plot...")
 
 # ==========================================
 # TOOL 3: FORMULA BASED
@@ -218,10 +232,15 @@ elif tool == "Formula based":
                     st.markdown("### Uncertainty Contributions")
                     total_variance = sum([data['contribution'] for data in step_data.values()])
                     if total_variance > 0:
+                        latex_contribs = []
                         for sym, data in step_data.items():
                             percentage = data['contribution'] / total_variance
                             st.markdown(f"**{sym} contribution: {percentage*100:.1f}%**")
                             st.progress(float(percentage))
+                            latex_contribs.append(f"\\text{{{sym} contribution}} = {percentage*100:.1f}\\%")
+                            
+                        with st.expander("Show Raw LaTeX for Contributions"):
+                            st.code(" \\\\\n".join(latex_contribs), language="latex")
                     
                 with col_derive:
                     st.markdown("### Step-by-Step Derivation")
@@ -230,6 +249,10 @@ elif tool == "Formula based":
                         latex_deriv = sp.latex(data['symbolic'])
                         st.latex(f"\\frac{{\\partial}}{{\\partial {sym}}} = {latex_deriv}")
                         st.markdown(f"<p style='text-align: center'>Evaluated at {sym} = {data['evaluated']:.4g}</p>", unsafe_allow_html=True)
+                        
+                        with st.expander(f"Show Raw LaTeX for {sym} Derivative"):
+                            st.code(f"\\frac{{\\partial f}}{{\\partial {sym}}} = {latex_deriv}", language="latex")
+                            
                         st.markdown("---")
             
             elif calc_method == "Monte Carlo Simulation":
