@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.subplots as plt
 import matplotlib.pyplot as plt
 import sympy as sp
 import io
@@ -294,16 +293,14 @@ elif tool == "Formula based":
             for sym in symbols_list:
                 st.markdown(f"**Variable:** `{sym}`")
                 
-                # By not hiding labels, Streamlit natively stacks them beautifully on mobile!
                 col1, col2, col3 = st.columns(3)
                 val = col1.number_input("Value", value=1.0, key=f"val_{sym}")
                 unc = col2.number_input("Uncert (±)", value=0.1, min_value=0.0, format="%.4f", key=f"unc_{sym}")
                 unit = col3.text_input("Unit", value="", key=f"unit_{sym}")
                 
                 variables[sym] = {'val': val, 'uncert': unc, 'unit': unit}
-                st.markdown("---") # Visual separator between variables
+                st.markdown("---") 
                 
-        # --- BIG BUTTON: Easy to tap on mobile ---
         calc_button = st.button("Calculate", type="primary", use_container_width=True)
 
     with display_col:
