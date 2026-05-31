@@ -54,12 +54,47 @@ if tool == "Reading based":
             
             st.dataframe(analysis_df.style.format("{:.2f}"), use_container_width=True)
             
-            st.download_button(
-                label="📥 Download Table as CSV",
-                data=analysis_df.to_csv(index=False).encode('utf-8'),
-                file_name='error_analysis.csv',
-                mime='text/csv',
-            )
+            # --- NEW: Generate Matplotlib Table for PNG/PDF Exports ---
+            # Create a figure sized dynamically based on the number of rows
+            fig_tbl, ax_tbl = plt.subplots(figsize=(10, len(analysis_df) * 0.5 + 1))
+            ax_tbl.axis('off')
+            ax_tbl.axis('tight')
+            
+            # Format data to 2 decimal places for the image
+            display_data = analysis_df.round(2).astype(str)
+            tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, loc='center', cellLoc='center')
+            tbl.scale(1, 1.5) # Add some padding to cells
+            
+            # Save to buffers
+            buf_tbl_png = io.BytesIO()
+            fig_tbl.savefig(buf_tbl_png, format="png", bbox_inches="tight", dpi=300)
+            
+            buf_tbl_pdf = io.BytesIO()
+            fig_tbl.savefig(buf_tbl_pdf, format="pdf", bbox_inches="tight")
+            
+            # Display all three download options in a neat row
+            dl_col1, dl_col2, dl_col3 = st.columns(3)
+            with dl_col1:
+                st.download_button(
+                    label="📥 Download CSV",
+                    data=analysis_df.to_csv(index=False).encode('utf-8'),
+                    file_name='error_analysis.csv',
+                    mime='text/csv',
+                )
+            with dl_col2:
+                st.download_button(
+                    label="📥 Download PNG",
+                    data=buf_tbl_png.getvalue(),
+                    file_name='error_analysis_table.png',
+                    mime='image/png',
+                )
+            with dl_col3:
+                st.download_button(
+                    label="📥 Download PDF",
+                    data=buf_tbl_pdf.getvalue(),
+                    file_name='error_analysis_table.pdf',
+                    mime='application/pdf',
+                )
             
             st.markdown("---")
             
@@ -222,18 +257,15 @@ elif tool == "Formula based":
             st.markdown("### Variables")
             
             # --- FIXED GRID ALIGNMENT ---
-            # Create the headers once
             h_sym, h1, h2, h3 = st.columns([0.5, 1, 1, 1])
             h_sym.markdown("**Var**")
             h1.markdown("**Value**")
             h2.markdown("**Uncert (±)**")
             h3.markdown("**Unit**")
             
-            # Create a BRAND NEW set of columns for EVERY single variable
             for sym in symbols_list:
                 row_sym, row1, row2, row3 = st.columns([0.5, 1, 1, 1])
                 
-                # Because it's in its own isolated row, we just need a tiny bump to match the input box
                 row_sym.markdown(f"<div style='padding-top: 8px; font-weight: bold;'>{sym}</div>", unsafe_allow_html=True)
                 
                 val = row1.number_input(f"{sym} val", value=1.0, key=f"val_{sym}", label_visibility="collapsed")
