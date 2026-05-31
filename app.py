@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.subplots as plt
 import matplotlib.pyplot as plt
 import sympy as sp
 import io
@@ -11,15 +12,17 @@ from engine import get_final_unit, format_sig_figs, propagate_uncertainty, run_m
 # 1. Lock the sidebar to always open
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="Uncertainty Analysis")
 
-# --- NEW: CUSTOM CSS FOR MOBILE UX ---
+# --- CUSTOM CSS FOR MOBILE UX ---
 st.markdown("""
 <style>
-/* 1. Add "Navigation" text next to the mobile menu arrows */
+/* 1. Force "Navigation" text next to the mobile hamburger menu */
+button[kind="headerNoPadding"]::after,
 [data-testid="collapsedControl"]::after {
-    content: "Navigation";
+    content: " Navigation";
     margin-left: 10px;
     font-size: 1.2rem;
     font-weight: 600;
+    vertical-align: middle;
 }
 
 /* 2. Force scrollbars to be thicker and always visible on tables */
@@ -80,22 +83,16 @@ if tool == "Reading based":
     with display_col:
         if not clean_df.empty and len(clean_df) > 1:
             
-            # --- MOVED: Customizer is now on top of the 2nd table ---
             with st.expander("⚙️ Customize Table Headings"):
                 col1_name = st.text_input("Measurement Column", "Measurement (x)")
                 col2_name = st.text_input("Mean Column", "Mean (x̄)")
                 col3_name = st.text_input("Deviation Column", "Deviation (x_i - x̄)")
                 col4_name = st.text_input("Squared Deviation Column", "Squared Deviation ((x_i - x̄)²)")
             
-            # --- NEW: Mobile Swipe Hint ---
             st.info("👉 **Mobile tip:** Swipe the table left and right to view all columns.")
             
             analysis_df = clean_df.copy()
-            
-            # Rename the input column to the custom name
             analysis_df.rename(columns={"Measurement (x)": col1_name}, inplace=True)
-            
-            # Build the rest using the custom names
             analysis_df[col2_name] = mean_val
             analysis_df[col3_name] = analysis_df[col1_name] - mean_val
             analysis_df[col4_name] = analysis_df[col3_name]**2
@@ -111,14 +108,12 @@ if tool == "Reading based":
             tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, loc='center', cellLoc='center')
             tbl.scale(1, 1.5) 
             
-            # Save to buffers
             buf_tbl_png = io.BytesIO()
             fig_tbl.savefig(buf_tbl_png, format="png", bbox_inches="tight", dpi=300)
             
             buf_tbl_pdf = io.BytesIO()
             fig_tbl.savefig(buf_tbl_pdf, format="pdf", bbox_inches="tight")
             
-            # Display all three download options in a neat row
             dl_col1, dl_col2, dl_col3 = st.columns(3)
             with dl_col1:
                 st.download_button(
@@ -144,7 +139,6 @@ if tool == "Reading based":
             
             st.markdown("---")
             
-            # Show standard deviation explicitly
             st.markdown("##### Standard Deviation ($\\sigma$)")
             st.latex(r"\sigma = \sqrt{\frac{\sum(x_i - \bar{x})^2}{n-1}} \approx " + f"{std_dev:.2f}")
             with st.expander("Show Raw LaTeX for Standard Deviation"):
@@ -156,7 +150,6 @@ if tool == "Reading based":
                 st.code(r"SE = \frac{\sigma}{\sqrt{n}}", language="latex")
             
             st.markdown("##### Final Reported Result:")
-            # Bypassing format_sig_figs to show exact UI matching decimals
             val_str = f"{mean_val:.2f}"
             unc_str = f"{std_error:.2f}"
             unit_str = f" {unit_input}" if unit_input else ""
@@ -192,7 +185,6 @@ elif tool == "Graphical Analysis":
     with display_col:
         metrics_col, plot_col = st.columns([1, 2])
         
-        # Clean data but DO NOT hide the UI if it's empty
         clean_graph_df = edited_graph_df.dropna()
         x = clean_graph_df["X Values"].values
         y = clean_graph_df["Y Values"].values
@@ -200,7 +192,6 @@ elif tool == "Graphical Analysis":
         with metrics_col:
             st.markdown("#### Regression Results")
             if len(x) > 1 and len(x) == len(y):
-                # Calculate simple regression
                 coeffs, cov = np.polyfit(x, y, 1, cov=True)
                 slope, intercept = coeffs
                 slope_err = np.sqrt(cov[0][0])
@@ -225,25 +216,21 @@ elif tool == "Graphical Analysis":
             st.markdown("#### Scatter Plot")
             fig, ax = plt.subplots()
             
-            # Always plot whatever points are valid
             if len(x) > 0:
                 ax.scatter(x, y, label=data_point_label, color="#3182ce")
             
-            # Only plot the line if we have enough points
             if len(x) > 1 and len(x) == len(y):
                 ax.plot(x, slope*x + intercept, color="#e53e3e", linestyle="--", label=best_fit_label)
                 
             ax.set_xlabel(x_label)
             ax.set_ylabel(y_label)
             
-            # Only show legend if we actually plotted something
             if len(x) > 0:
                 ax.legend()
                 
             ax.grid(True, linestyle=":", alpha=0.7)
             st.pyplot(fig)
             
-            # Only allow downloads if a valid line exists
             if len(x) > 1 and len(x) == len(y):
                 buf_png = io.BytesIO()
                 fig.savefig(buf_png, format="png", bbox_inches="tight", dpi=300)
@@ -267,6 +254,10 @@ elif tool == "Formula based":
         st.markdown("### 1. Input Parameters")
         formula_input = st.text_input("Formula (e.g., d / t)", "d / t")
         
+        # --- MOVED: Calculation Method is now at the top ---
+        st.markdown("### Calculation Method")
+        calc_method = st.radio("Method", ["Linear Propagation (Taylor)", "Monte Carlo Simulation"], label_visibility="collapsed")
+        
         with st.expander("💡 Formula Syntax Guide"):
             st.markdown("""
             **Basic Operations:**
@@ -284,13 +275,8 @@ elif tool == "Formula based":
             * Square Root: `sqrt(x)`
             * Pi ($\pi$): `pi`
             * Euler's number ($e$): `E`
-            
-            **Calculus (Advanced):**
-            * Derivative: `diff(x**2, x)`
-            * Integral: `integrate(x**2, x)`
             """)
         
-        # Dynamically extract variables
         try:
             expr = sp.sympify(formula_input)
             symbols_list = [str(sym) for sym in expr.free_symbols]
@@ -304,31 +290,24 @@ elif tool == "Formula based":
         if valid_formula and symbols_list:
             st.markdown("### Variables")
             
-            # --- FIXED GRID ALIGNMENT ---
-            h_sym, h1, h2, h3 = st.columns([0.5, 1, 1, 1])
-            h_sym.markdown("**Var**")
-            h1.markdown("**Value**")
-            h2.markdown("**Uncert (±)**")
-            h3.markdown("**Unit**")
-            
+            # --- REDESIGNED: Mobile-friendly Variable Inputs ---
             for sym in symbols_list:
-                row_sym, row1, row2, row3 = st.columns([0.5, 1, 1, 1])
+                st.markdown(f"**Variable:** `{sym}`")
                 
-                row_sym.markdown(f"<div style='padding-top: 8px; font-weight: bold;'>{sym}</div>", unsafe_allow_html=True)
-                
-                val = row1.number_input(f"{sym} val", value=1.0, key=f"val_{sym}", label_visibility="collapsed")
-                unc = row2.number_input(f"{sym} unc", value=0.1, min_value=0.0, format="%.4f", key=f"unc_{sym}", label_visibility="collapsed")
-                unit = row3.text_input(f"{sym} unit", value="", key=f"unit_{sym}", label_visibility="collapsed")
+                # By not hiding labels, Streamlit natively stacks them beautifully on mobile!
+                col1, col2, col3 = st.columns(3)
+                val = col1.number_input("Value", value=1.0, key=f"val_{sym}")
+                unc = col2.number_input("Uncert (±)", value=0.1, min_value=0.0, format="%.4f", key=f"unc_{sym}")
+                unit = col3.text_input("Unit", value="", key=f"unit_{sym}")
                 
                 variables[sym] = {'val': val, 'uncert': unc, 'unit': unit}
+                st.markdown("---") # Visual separator between variables
                 
-        st.markdown("### Calculation Method")
-        calc_method = st.radio("Method", ["Linear Propagation (Taylor)", "Monte Carlo Simulation"], label_visibility="collapsed")
-        calc_button = st.button("Calculate", type="primary")
+        # --- BIG BUTTON: Easy to tap on mobile ---
+        calc_button = st.button("Calculate", type="primary", use_container_width=True)
 
     with display_col:
         if valid_formula and symbols_list and calc_button:
-            # We always run the linear derivation to get the step-by-step breakdown
             linear_val, linear_unc, step_data = propagate_uncertainty(formula_input, variables)
             final_unit = get_final_unit(formula_input, variables)
             
@@ -371,10 +350,8 @@ elif tool == "Formula based":
                         st.markdown("---")
             
             elif calc_method == "Monte Carlo Simulation":
-                # Run the simulation
                 mc_mean, mc_std, results, median, lower, upper = run_monte_carlo(formula_input, variables)
                 
-                # Nonlinearity Warning Check (Tolerance > 5%)
                 if linear_val != 0 and linear_unc != 0:
                     val_diff = abs(linear_val - mc_mean) / abs(linear_val)
                     unc_diff = abs(linear_unc - mc_std) / linear_unc
@@ -391,7 +368,6 @@ elif tool == "Formula based":
                 
                 st.markdown(f"**Median:** {median:.4g} | **Asymmetric Bounds:** +{upper:.4g} / -{lower:.4g}")
                 
-                # Plot Histogram
                 fig_mc, ax_mc = plt.subplots()
                 ax_mc.hist(results, bins=50, color="#3182ce", edgecolor="black", alpha=0.7)
                 ax_mc.axvline(mc_mean, color="#e53e3e", linestyle="dashed", linewidth=2, label=f"Mean: {mc_mean:.4g}")
@@ -403,7 +379,6 @@ elif tool == "Formula based":
                 
                 st.pyplot(fig_mc)
                 
-                # Save histogram buffers
                 buf_mc_png = io.BytesIO()
                 fig_mc.savefig(buf_mc_png, format="png", bbox_inches="tight", dpi=300)
                 buf_mc_pdf = io.BytesIO()
