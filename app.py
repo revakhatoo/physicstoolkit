@@ -27,7 +27,6 @@ if tool == "Reading based":
     with input_col:
         st.markdown("### Input Readings")
         
-        # --- NEW: Customizable Table Headings ---
         with st.expander("⚙️ Customize Table Headings"):
             col1_name = st.text_input("Measurement Column", "Measurement (x)")
             col2_name = st.text_input("Mean Column", "Mean (x̄)")
@@ -37,6 +36,9 @@ if tool == "Reading based":
         # Default data dynamically uses the custom name
         default_data = pd.DataFrame({col1_name: [10.00, 20.50, 35.67, 27.30]})
         edited_df = st.data_editor(default_data, num_rows="dynamic", use_container_width=True)
+        
+        # --- NEW: Unit Input ---
+        unit_input = st.text_input("Unit (optional)", "")
         
         # Clean data so the UI doesn't vanish while editing
         clean_df = edited_df.dropna()
@@ -121,10 +123,12 @@ if tool == "Reading based":
             # Bypassing format_sig_figs to show exact UI matching decimals
             val_str = f"{mean_val:.2f}"
             unc_str = f"{std_error:.2f}"
+            unit_str = f" {unit_input}" if unit_input else ""
+            latex_unit = f" \\text{{ {unit_input}}}" if unit_input else ""
             
-            st.success(f"{val_str} ± {unc_str}")
+            st.success(f"{val_str} ± {unc_str}{unit_str}")
             with st.expander("Show Raw LaTeX for Final Result"):
-                st.code(f"{val_str} \\pm {unc_str}", language="latex")
+                st.code(f"{val_str} \\pm {unc_str}{latex_unit}", language="latex")
 
 # ==========================================
 # TOOL 2: GRAPHICAL ANALYSIS
