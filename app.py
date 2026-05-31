@@ -184,7 +184,6 @@ elif tool == "Formula based":
         st.markdown("### 1. Input Parameters")
         formula_input = st.text_input("Formula (e.g., d / t)", "d / t")
         
-        # --- NEW SYNTAX GUIDE EXPANDER ---
         with st.expander("💡 Formula Syntax Guide"):
             st.markdown("""
             **Basic Operations:**
@@ -221,19 +220,26 @@ elif tool == "Formula based":
         variables = {}
         if valid_formula and symbols_list:
             st.markdown("### Variables")
-            col_sym, col1, col2, col3 = st.columns([0.5, 1, 1, 1])
-            col_sym.markdown("**Var**")
-            col1.markdown("**Value**")
-            col2.markdown("**Uncert (±)**")
-            col3.markdown("**Unit**")
             
+            # --- FIXED GRID ALIGNMENT ---
+            # Create the headers once
+            h_sym, h1, h2, h3 = st.columns([0.5, 1, 1, 1])
+            h_sym.markdown("**Var**")
+            h1.markdown("**Value**")
+            h2.markdown("**Uncert (±)**")
+            h3.markdown("**Unit**")
+            
+            # Create a BRAND NEW set of columns for EVERY single variable
             for sym in symbols_list:
-                # PERFECT ALIGNMENT: CSS Flexbox to match Streamlit's 40px input box height exactly
-                col_sym.markdown(f"<div style='height: 40px; display: flex; align-items: center; font-weight: bold;'>{sym}</div>", unsafe_allow_html=True)
+                row_sym, row1, row2, row3 = st.columns([0.5, 1, 1, 1])
                 
-                val = col1.number_input(f"{sym} val", value=1.0, key=f"val_{sym}", label_visibility="collapsed")
-                unc = col2.number_input(f"{sym} unc", value=0.1, min_value=0.0, format="%.4f", key=f"unc_{sym}", label_visibility="collapsed")
-                unit = col3.text_input(f"{sym} unit", value="", key=f"unit_{sym}", label_visibility="collapsed")
+                # Because it's in its own isolated row, we just need a tiny bump to match the input box
+                row_sym.markdown(f"<div style='padding-top: 8px; font-weight: bold;'>{sym}</div>", unsafe_allow_html=True)
+                
+                val = row1.number_input(f"{sym} val", value=1.0, key=f"val_{sym}", label_visibility="collapsed")
+                unc = row2.number_input(f"{sym} unc", value=0.1, min_value=0.0, format="%.4f", key=f"unc_{sym}", label_visibility="collapsed")
+                unit = row3.text_input(f"{sym} unit", value="", key=f"unit_{sym}", label_visibility="collapsed")
+                
                 variables[sym] = {'val': val, 'uncert': unc, 'unit': unit}
                 
         st.markdown("### Calculation Method")
