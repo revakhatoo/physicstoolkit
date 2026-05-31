@@ -14,8 +14,7 @@ st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="
 # --- CUSTOM CSS FOR MOBILE UX ---
 st.markdown("""
 <style>
-/* 1. Force "Navigation" text next to the mobile hamburger menu */
-button[kind="headerNoPadding"]::after,
+/* 1. Force "Navigation" text next to the left mobile hamburger menu */
 [data-testid="collapsedControl"]::after {
     content: " Navigation";
     margin-left: 10px;
@@ -24,7 +23,16 @@ button[kind="headerNoPadding"]::after,
     vertical-align: middle;
 }
 
-/* 2. Force scrollbars to be thicker and always visible on tables */
+/* 2. Force "Settings" text next to the right 3-dot menu */
+[data-testid="stHeaderActionElements"] button:last-child::after {
+    content: " Settings";
+    margin-left: 5px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+/* 3. Force scrollbars to be thicker and always visible on tables */
 ::-webkit-scrollbar {
     height: 12px !important;
 }
@@ -250,13 +258,16 @@ elif tool == "Formula based":
     input_col, display_col = st.columns([1, 2])
     
     with input_col:
-        st.markdown("### 1. Input Parameters")
-        formula_input = st.text_input("Formula (e.g., d / t)", "d / t")
         
-        # --- MOVED: Calculation Method is now at the top ---
+        # --- REORDERED: 1. Calculation Method ---
         st.markdown("### Calculation Method")
         calc_method = st.radio("Method", ["Linear Propagation (Taylor)", "Monte Carlo Simulation"], label_visibility="collapsed")
         
+        # --- REORDERED: 2. Input Parameters ---
+        st.markdown("### 1. Input Parameters")
+        formula_input = st.text_input("Formula (e.g., d / t)", "d / t")
+        
+        # --- REORDERED: 3. Syntax Guide ---
         with st.expander("💡 Formula Syntax Guide"):
             st.markdown("""
             **Basic Operations:**
@@ -289,7 +300,6 @@ elif tool == "Formula based":
         if valid_formula and symbols_list:
             st.markdown("### Variables")
             
-            # --- REDESIGNED: Mobile-friendly Variable Inputs ---
             for sym in symbols_list:
                 st.markdown(f"**Variable:** `{sym}`")
                 
