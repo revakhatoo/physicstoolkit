@@ -26,19 +26,27 @@ if tool == "Reading based":
     
     with input_col:
         st.markdown("### Input Readings")
-        # Default data
-        default_data = pd.DataFrame({"Measurement (x)": [10.00, 20.50, 35.67, 27.30]})
+        
+        # --- NEW: Customizable Table Headings ---
+        with st.expander("⚙️ Customize Table Headings"):
+            col1_name = st.text_input("Measurement Column", "Measurement (x)")
+            col2_name = st.text_input("Mean Column", "Mean (x̄)")
+            col3_name = st.text_input("Deviation Column", "Deviation (x_i - x̄)")
+            col4_name = st.text_input("Squared Deviation Column", "Squared Deviation ((x_i - x̄)²)")
+            
+        # Default data dynamically uses the custom name
+        default_data = pd.DataFrame({col1_name: [10.00, 20.50, 35.67, 27.30]})
         edited_df = st.data_editor(default_data, num_rows="dynamic", use_container_width=True)
         
         # Clean data so the UI doesn't vanish while editing
         clean_df = edited_df.dropna()
         
         if not clean_df.empty and len(clean_df) > 1:
-            mean_val = clean_df["Measurement (x)"].mean()
-            std_dev = clean_df["Measurement (x)"].std(ddof=1)
+            mean_val = clean_df[col1_name].mean()
+            std_dev = clean_df[col1_name].std(ddof=1)
             std_error = std_dev / np.sqrt(len(clean_df))
             
-            st.success(f"**Mean ($\\bar{{x}}$):** {mean_val:.2f}")
+            st.success(f"**Mean:** {mean_val:.2f}")
             st.info(f"**Std Deviation ($\\sigma$):** {std_dev:.2f}")
             st.info(f"**Standard Error ($\\pm$):** {std_error:.2f}")
         else:
@@ -48,14 +56,14 @@ if tool == "Reading based":
     with display_col:
         if not clean_df.empty and len(clean_df) > 1:
             analysis_df = clean_df.copy()
-            analysis_df["Mean (x̄)"] = mean_val
-            analysis_df["Deviation (x_i - x̄)"] = analysis_df["Measurement (x)"] - mean_val
-            analysis_df["Squared Deviation ((x_i - x̄)²)"] = analysis_df["Deviation (x_i - x̄)"]**2
+            # Use the custom column names for the analysis table
+            analysis_df[col2_name] = mean_val
+            analysis_df[col3_name] = analysis_df[col1_name] - mean_val
+            analysis_df[col4_name] = analysis_df[col3_name]**2
             
             st.dataframe(analysis_df.style.format("{:.2f}"), use_container_width=True)
             
-            # --- NEW: Generate Matplotlib Table for PNG/PDF Exports ---
-            # Create a figure sized dynamically based on the number of rows
+            # --- Generate Matplotlib Table for PNG/PDF Exports ---
             fig_tbl, ax_tbl = plt.subplots(figsize=(10, len(analysis_df) * 0.5 + 1))
             ax_tbl.axis('off')
             ax_tbl.axis('tight')
@@ -63,7 +71,7 @@ if tool == "Reading based":
             # Format data to 2 decimal places for the image
             display_data = analysis_df.round(2).astype(str)
             tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, loc='center', cellLoc='center')
-            tbl.scale(1, 1.5) # Add some padding to cells
+            tbl.scale(1, 1.5) 
             
             # Save to buffers
             buf_tbl_png = io.BytesIO()
