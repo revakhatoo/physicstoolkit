@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.subplots as plt
 import matplotlib.pyplot as plt
 import sympy as sp
 import io
@@ -151,7 +150,6 @@ if tool == "Reading based":
                 with st.expander("⚙️ Customize Table Headings"):
                     col1_name = st.text_input("Measurement Column", "Measurement (x)")
                     col2_name = st.text_input("Mean Column", "Mean (x̄)")
-                    # --- NEW: Added formula to default heading ---
                     col3_name = st.text_input("Absolute Error Column", "Absolute Error (|x_i - x̄|)")
                     col4_name = st.text_input("Squared Error Column", "(Absolute Error)²")
                 
@@ -189,7 +187,6 @@ if tool == "Reading based":
                 
                 st.markdown("---")
                 
-                # --- NEW: Inline formulas in Error Values ---
                 st.markdown("##### Error Values")
                 st.markdown(f"* **Mean Absolute Error** ($\\Delta x = \\frac{{\\sum |x_i - \\bar{{x}}|}}{{n}}$): **{absolute_error:.4g}**")
                 st.markdown(f"* **Relative Error** ($\\frac{{\\Delta x}}{{\\bar{{x}}}}$): **{relative_error:.4g}**")
@@ -251,7 +248,6 @@ if tool == "Reading based":
                 st.markdown("##### Final Reading Formula")
                 st.latex(r"\text{Final Reading} = \text{MSR} + (\text{VSR} \times \text{LC})")
                 
-                # --- NEW: Inline formulas in Error Values ---
                 st.markdown("##### Error Values")
                 st.markdown(f"* **Statistical Mean Absolute Error** ($\\Delta a_m = \\frac{{\\sum |x_i - \\bar{{x}}|}}{{n}}$): **{stat_mean_abs_error:.4g}**")
                 st.markdown(f"* **Final Absolute Error** ($\\Delta x = \\max(\\Delta a_m, LC)$): **{absolute_error:.4g}**")
