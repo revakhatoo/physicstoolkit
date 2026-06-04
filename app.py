@@ -95,27 +95,29 @@ if tool == "Reading based":
                 mean_val, std_dev, std_error = 0, 0, 0
                 
         else: # WITH LEAST COUNT
+            # LC is now extracted from the table into a clean universal input box
+            col_lc, col_unit = st.columns(2)
+            least_count = col_lc.number_input("Least Count", value=0.01, min_value=0.0, format="%.4f")
+            unit_input = col_unit.text_input("Unit (optional)", "cm")
+            
             default_data = pd.DataFrame({
                 "Main Scale Reading (MSR)": [2.4, 2.4, 2.4, 2.5],
-                "Vernier Scale Reading (VSR)": [5.0, 6.0, 4.0, 1.0],
-                "Least Count (LC)": [0.01, 0.01, 0.01, 0.01]
+                "Vernier Scale Reading (VSR)": [5.0, 6.0, 4.0, 1.0]
             })
             edited_df = st.data_editor(default_data, num_rows="dynamic", use_container_width=True)
-            unit_input = st.text_input("Unit (optional)", "cm")
             
             clean_df = edited_df.dropna()
             
             if not clean_df.empty and len(clean_df) > 0:
                 # Calculate Final Reading for the preview
-                temp_final = clean_df["Main Scale Reading (MSR)"] + (clean_df["Vernier Scale Reading (VSR)"] * clean_df["Least Count (LC)"])
+                temp_final = clean_df["Main Scale Reading (MSR)"] + (clean_df["Vernier Scale Reading (VSR)"] * least_count)
                 mean_val = temp_final.mean()
-                lc_val = clean_df["Least Count (LC)"].iloc[0]
                 
-                st.success(f"**Average Final Reading:** {mean_val:.4g}")
-                st.info(f"**Least Count Error ($\\pm$):** {lc_val:.4g}")
+                st.success(f"**Average Final Reading:** {mean_val:.2f}")
+                st.info(f"**Least Count ($\\pm$):** {least_count:.4g}")
             else:
                 st.warning("Please enter at least one data point.")
-                mean_val, lc_val = 0, 0
+                mean_val = 0
         
     with display_col:
         if lc_mode == "Without Least Count (Simple)":
@@ -180,16 +182,17 @@ if tool == "Reading based":
                 st.info("👉 **Mobile tip:** Swipe the table left and right to view all columns.")
                 
                 analysis_df = clean_df.copy()
-                # Calculate Final Reading explicitly for the table
-                analysis_df["Final Reading"] = analysis_df["Main Scale Reading (MSR)"] + (analysis_df["Vernier Scale Reading (VSR)"] * analysis_df["Least Count (LC)"])
+                # Automatically calculate the Final Reading column using the single Least Count value
+                analysis_df["Final Reading"] = analysis_df["Main Scale Reading (MSR)"] + (analysis_df["Vernier Scale Reading (VSR)"] * least_count)
                 
-                st.dataframe(analysis_df.style.format("{:.4g}"), use_container_width=True)
+                # Format to exactly 2 decimal places as requested
+                st.dataframe(analysis_df.style.format("{:.2f}"), use_container_width=True)
                 
                 # PNG/PDF Export logic
                 fig_tbl, ax_tbl = plt.subplots(figsize=(10, len(analysis_df) * 0.5 + 1))
                 ax_tbl.axis('off')
                 ax_tbl.axis('tight')
-                display_data = analysis_df.round(4).astype(str)
+                display_data = analysis_df.round(2).astype(str)
                 tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, loc='center', cellLoc='center')
                 tbl.scale(1, 1.5) 
                 
@@ -213,8 +216,10 @@ if tool == "Reading based":
                 
                 st.markdown("##### Final Reported Result:")
                 st.markdown("*Note: The final uncertainty is defined by the instrument's Least Count limit.*")
-                val_str = f"{mean_val:.4g}"
-                unc_str = f"{lc_val:.4g}"
+                
+                # Locked to 2 decimal places to match the table
+                val_str = f"{mean_val:.2f}"
+                unc_str = f"{least_count:.4g}"
                 unit_str = f" {unit_input}" if unit_input else ""
                 latex_unit = f" \\text{{ {unit_input}}}" if unit_input else ""
                 
