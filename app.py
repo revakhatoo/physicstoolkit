@@ -131,6 +131,13 @@ if tool == "Reading based":
                 temp_final = clean_df["Main Scale Reading (MSR)"] + (clean_df["Vernier Scale Reading (VSR)"] * least_count)
                 mean_val = temp_final.mean()
                 
+                # --- NEW: Compute Standard Deviation and Standard Error for LC Mode ---
+                if len(clean_df) > 1:
+                    std_dev = temp_final.std(ddof=1)
+                    std_error = std_dev / np.sqrt(len(clean_df))
+                else:
+                    std_dev, std_error = 0, 0
+                
                 # Math logic for absolute/relative error
                 stat_mean_abs_error = np.mean(np.abs(temp_final - mean_val)) + 1e-9
                 absolute_error = max(stat_mean_abs_error, least_count)
@@ -139,6 +146,11 @@ if tool == "Reading based":
                 
                 st.success(f"**Average Final Reading:** {mean_val:.2f}")
                 st.info(f"**Least Count:** {least_count:.4g}")
+                
+                # --- NEW: Display Std Dev and Std Error explicitly under inputs ---
+                if len(clean_df) > 1:
+                    st.info(f"**Std Deviation ($\\sigma$):** {std_dev:.4g}")
+                    st.info(f"**Standard Error ($\\pm$):** {std_error:.4g}")
             else:
                 st.warning("Please enter at least one data point.")
                 mean_val, absolute_error, relative_error, pct_error, stat_mean_abs_error = 0, 0, 0, 0, 0
@@ -218,15 +230,21 @@ if tool == "Reading based":
                 
                 analysis_df = clean_df.copy()
                 analysis_df["Final Reading"] = analysis_df["Main Scale Reading (MSR)"] + (analysis_df["Vernier Scale Reading (VSR)"] * least_count)
+                
+                # --- NEW: Append the statistical error tracking columns to the Least Count mode table ---
+                analysis_df["Absolute Error (|x_i - x̄|)"] = np.abs(analysis_df["Final Reading"] - mean_val)
+                analysis_df["(Absolute Error)²"] = analysis_df["Absolute Error (|x_i - x̄|)"]**2
+                
                 analysis_df.index = range(1, len(analysis_df) + 1) # Force index to start at 1
                 
-                st.dataframe(analysis_df.style.format("{:.2f}"), use_container_width=True)
+                # Format to .4g so that the small absolute and squared errors are visible
+                st.dataframe(analysis_df.style.format("{:.4g}"), use_container_width=True)
                 
                 # PNG/PDF Export logic
-                fig_tbl, ax_tbl = plt.subplots(figsize=(10, len(analysis_df) * 0.5 + 1))
+                fig_tbl, ax_tbl = plt.subplots(figsize=(12, len(analysis_df) * 0.5 + 1))
                 ax_tbl.axis('off')
                 ax_tbl.axis('tight')
-                display_data = analysis_df.round(2).astype(str)
+                display_data = analysis_df.round(4).astype(str)
                 tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, rowLabels=display_data.index, loc='center', cellLoc='center')
                 tbl.scale(1, 1.5) 
                 
@@ -254,7 +272,7 @@ if tool == "Reading based":
                 st.markdown(f"* **Relative Error** ($\\frac{{\\Delta x}}{{\\bar{{x}}}}$): **{relative_error:.4g}**")
                 st.markdown(f"* **Percentage Error** (Relative Error $\\times 100\\%$): **{pct_error:.2f}%**")
                 
-                abs_err_vals_lc = " + ".join([f"{v:.3g}" for v in np.abs(analysis_df["Final Reading"] - mean_val)])
+                abs_err_vals_lc = " + ".join([f"{v:.3g}" for v in analysis_df["Absolute Error (|x_i - x̄|)"]])
                 n_vals_lc = len(clean_df)
                 
                 with st.expander("Show Raw LaTeX for Errors"):
