@@ -178,11 +178,9 @@ if tool == "Reading based":
                 analysis_df[col4_name] = analysis_df[col3_name]**2
                 analysis_df.index = range(1, len(analysis_df) + 1)
                 
-                # Format exactly using dynamic sci-notation check
                 st.dataframe(analysis_df.style.format(dynamic_fmt), use_container_width=True)
                 st.caption("💡 **Note on scientific notation:** A value like `2.5e-05` represents $2.5 \\times 10^{-5}$ (or $0.000025$).")
                 
-                # PNG/PDF Export logic
                 fig_tbl, ax_tbl = plt.subplots(figsize=(10, len(analysis_df) * 0.5 + 1))
                 ax_tbl.axis('off')
                 ax_tbl.axis('tight')
@@ -246,11 +244,9 @@ if tool == "Reading based":
                 
                 analysis_df.index = range(1, len(analysis_df) + 1)
                 
-                # Format exactly using dynamic sci-notation check
                 st.dataframe(analysis_df.style.format(dynamic_fmt), use_container_width=True)
                 st.caption("💡 **Note on scientific notation:** A value like `2.5e-05` represents $2.5 \\times 10^{-5}$ (or $0.000025$).")
                 
-                # PNG/PDF Export logic
                 fig_tbl, ax_tbl = plt.subplots(figsize=(12, len(analysis_df) * 0.5 + 1))
                 ax_tbl.axis('off')
                 ax_tbl.axis('tight')
@@ -629,16 +625,20 @@ elif tool == "Formula based":
             linear_val, linear_unc, step_data = propagate_uncertainty(formula_input, variables)
             final_unit = get_final_unit(formula_input, variables)
             
+            # --- NEW: Safe dynamic unit formatting ---
+            unit_display = f" {final_unit.strip()}" if final_unit and final_unit.strip() else ""
+            latex_unit_display = f" \\text{{ {final_unit.strip()}}}" if final_unit and final_unit.strip() else ""
+            
             if calc_method == "Linear Propagation (Taylor)":
                 col_res, col_derive = st.columns([1, 1])
                 val_str, unc_str = format_sig_figs(linear_val, linear_unc)
                 
                 with col_res:
                     st.markdown("### Final Result")
-                    st.success(f"**Result:** {val_str} ± {unc_str} {final_unit}")
+                    st.success(f"**Result:** {val_str} ± {unc_str}{unit_display}")
                     
                     with st.expander("Show Raw LaTeX (For Reports)"):
-                        st.code(f"{val_str} \\pm {unc_str} \\text{{ {final_unit}}}", language="latex")
+                        st.code(f"{val_str} \\pm {unc_str}{latex_unit_display}", language="latex")
                         
                     st.markdown("### Uncertainty Contributions")
                     total_variance = sum([data['contribution'] for data in step_data.values()])
@@ -679,17 +679,21 @@ elif tool == "Formula based":
                 mc_val_str, mc_unc_str = format_sig_figs(mc_mean, mc_std)
                 
                 st.markdown("### Monte Carlo Final Result (10,000 Iterations)")
-                st.success(f"**Result:** {mc_val_str} ± {mc_unc_str} {final_unit}")
+                st.success(f"**Result:** {mc_val_str} ± {mc_unc_str}{unit_display}")
                 
                 with st.expander("Show Raw LaTeX (For Reports)"):
-                    st.code(f"{mc_val_str} \\pm {mc_unc_str} \\text{{ {final_unit}}}", language="latex")
+                    st.code(f"{mc_val_str} \\pm {mc_unc_str}{latex_unit_display}", language="latex")
                 
                 st.markdown(f"**Median:** {median:.4g} | **Asymmetric Bounds:** +{upper:.4g} / -{lower:.4g}")
                 
                 fig_mc, ax_mc = plt.subplots()
                 ax_mc.hist(results, bins=50, color="#3182ce", edgecolor="black", alpha=0.7)
                 ax_mc.axvline(mc_mean, color="#e53e3e", linestyle="dashed", linewidth=2, label=f"Mean: {mc_mean:.4g}")
-                ax_mc.set_xlabel(f"Calculated Result ({final_unit})")
+                
+                # --- NEW: Safe conditional x-axis label formatting ---
+                mc_xlabel = f"Calculated Result ({final_unit.strip()})" if final_unit and final_unit.strip() else "Calculated Result"
+                ax_mc.set_xlabel(mc_xlabel)
+                
                 ax_mc.set_ylabel("Frequency")
                 ax_mc.set_title("Monte Carlo Propagation Distribution")
                 ax_mc.legend()
