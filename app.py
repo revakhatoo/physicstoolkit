@@ -55,6 +55,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- DYNAMIC SCIENTIFIC FORMATTER ---
+def dynamic_fmt(val):
+    if isinstance(val, (int, float)):
+        if 0 < abs(val) < 0.001:
+            return f"{val:.2e}"
+        return f"{val:.4g}"
+    return val
+
 # 2. Setup the Navigation in the sidebar
 st.sidebar.title("Navigation")
 st.sidebar.markdown("Select Tool:")
@@ -88,7 +96,6 @@ if tool == "Reading based":
                 std_dev = clean_df["Measurement (x)"].std(ddof=1)
                 std_error = std_dev / np.sqrt(len(clean_df))
                 
-                # Math logic for absolute/relative error
                 absolute_error = np.mean(np.abs(clean_df["Measurement (x)"] - mean_val)) + 1e-9 
                 relative_error = absolute_error / abs(mean_val) if mean_val != 0 else 0
                 pct_error = relative_error * 100
@@ -122,7 +129,7 @@ if tool == "Reading based":
                 "Main Scale Reading (MSR)": [2.4, 2.4, 2.4, 2.5],
                 "Vernier Scale Reading (VSR)": [5.0, 6.0, 4.0, 1.0]
             })
-            default_data.index = range(1, len(default_data) + 1) # Start index at 1
+            default_data.index = range(1, len(default_data) + 1)
             edited_df = st.data_editor(default_data, num_rows="dynamic", use_container_width=True)
             
             clean_df = edited_df.dropna()
@@ -131,14 +138,12 @@ if tool == "Reading based":
                 temp_final = clean_df["Main Scale Reading (MSR)"] + (clean_df["Vernier Scale Reading (VSR)"] * least_count)
                 mean_val = temp_final.mean()
                 
-                # --- NEW: Compute Standard Deviation and Standard Error for LC Mode ---
                 if len(clean_df) > 1:
                     std_dev = temp_final.std(ddof=1)
                     std_error = std_dev / np.sqrt(len(clean_df))
                 else:
                     std_dev, std_error = 0, 0
                 
-                # Math logic for absolute/relative error
                 stat_mean_abs_error = np.mean(np.abs(temp_final - mean_val)) + 1e-9
                 absolute_error = max(stat_mean_abs_error, least_count)
                 relative_error = absolute_error / abs(mean_val) if mean_val != 0 else 0
@@ -147,7 +152,6 @@ if tool == "Reading based":
                 st.success(f"**Average Final Reading:** {mean_val:.2f}")
                 st.info(f"**Least Count:** {least_count:.4g}")
                 
-                # --- NEW: Display Std Dev and Std Error explicitly under inputs ---
                 if len(clean_df) > 1:
                     st.info(f"**Std Deviation ($\\sigma$):** {std_dev:.4g}")
                     st.info(f"**Standard Error ($\\pm$):** {std_error:.4g}")
@@ -172,15 +176,21 @@ if tool == "Reading based":
                 analysis_df[col2_name] = mean_val
                 analysis_df[col3_name] = np.abs(analysis_df[col1_name] - mean_val)
                 analysis_df[col4_name] = analysis_df[col3_name]**2
-                analysis_df.index = range(1, len(analysis_df) + 1) # Force index to start at 1
+                analysis_df.index = range(1, len(analysis_df) + 1)
                 
-                st.dataframe(analysis_df.style.format("{:.3f}"), use_container_width=True)
+                # Format exactly using dynamic sci-notation check
+                st.dataframe(analysis_df.style.format(dynamic_fmt), use_container_width=True)
+                st.caption("💡 **Note on scientific notation:** A value like `2.5e-05` represents $2.5 \\times 10^{-5}$ (or $0.000025$).")
                 
                 # PNG/PDF Export logic
                 fig_tbl, ax_tbl = plt.subplots(figsize=(10, len(analysis_df) * 0.5 + 1))
                 ax_tbl.axis('off')
                 ax_tbl.axis('tight')
-                display_data = analysis_df.round(3).astype(str)
+                
+                display_data = analysis_df.copy()
+                for col in display_data.columns:
+                    display_data[col] = display_data[col].apply(dynamic_fmt)
+                    
                 tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, rowLabels=display_data.index, loc='center', cellLoc='center')
                 tbl.scale(1, 1.5) 
                 
@@ -231,20 +241,24 @@ if tool == "Reading based":
                 analysis_df = clean_df.copy()
                 analysis_df["Final Reading"] = analysis_df["Main Scale Reading (MSR)"] + (analysis_df["Vernier Scale Reading (VSR)"] * least_count)
                 
-                # --- NEW: Append the statistical error tracking columns to the Least Count mode table ---
                 analysis_df["Absolute Error (|x_i - x̄|)"] = np.abs(analysis_df["Final Reading"] - mean_val)
                 analysis_df["(Absolute Error)²"] = analysis_df["Absolute Error (|x_i - x̄|)"]**2
                 
-                analysis_df.index = range(1, len(analysis_df) + 1) # Force index to start at 1
+                analysis_df.index = range(1, len(analysis_df) + 1)
                 
-                # Format to .4g so that the small absolute and squared errors are visible
-                st.dataframe(analysis_df.style.format("{:.4g}"), use_container_width=True)
+                # Format exactly using dynamic sci-notation check
+                st.dataframe(analysis_df.style.format(dynamic_fmt), use_container_width=True)
+                st.caption("💡 **Note on scientific notation:** A value like `2.5e-05` represents $2.5 \\times 10^{-5}$ (or $0.000025$).")
                 
                 # PNG/PDF Export logic
                 fig_tbl, ax_tbl = plt.subplots(figsize=(12, len(analysis_df) * 0.5 + 1))
                 ax_tbl.axis('off')
                 ax_tbl.axis('tight')
-                display_data = analysis_df.round(4).astype(str)
+                
+                display_data = analysis_df.copy()
+                for col in display_data.columns:
+                    display_data[col] = display_data[col].apply(dynamic_fmt)
+                    
                 tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, rowLabels=display_data.index, loc='center', cellLoc='center')
                 tbl.scale(1, 1.5) 
                 
@@ -309,8 +323,12 @@ elif tool == "Graphical Analysis":
         fit_type = st.selectbox("Fitting Function", [
             "Linear (y = mx + c)",
             "Quadratic (y = ax² + bx + c)",
+            "Cubic (y = ax³ + bx² + cx + d)",
             "Exponential (y = A e^{Bx})",
-            "Power (y = A x^B)"
+            "Logarithmic (y = A ln(x) + B)",
+            "Power (y = A x^B)",
+            "Inverse (y = A/x + B)",
+            "Inverse Square (y = A/x² + B)"
         ])
         
         st.markdown("### Data Points")
@@ -318,7 +336,7 @@ elif tool == "Graphical Analysis":
             "X Values": [1.0, 2.0, 3.0, 4.0, 5.0],
             "Y Values": [2.1, 4.0, 6.2, 7.9, 10.1]
         })
-        graph_data.index = range(1, len(graph_data) + 1) # Start index at 1
+        graph_data.index = range(1, len(graph_data) + 1)
         edited_graph_df = st.data_editor(graph_data, num_rows="dynamic", use_container_width=True)
         
         st.markdown("### Plot Labels & Legends")
@@ -373,6 +391,25 @@ elif tool == "Graphical Analysis":
                         st.latex(f"y = ({a_str})x^2 + ({b_str})x + ({c_str})")
                         fit_successful = True
                         
+                    elif "Cubic" in fit_type:
+                        coeffs, cov = np.polyfit(x, y, 3, cov=True)
+                        a, b, c, d = coeffs
+                        da, db, dc, dd = np.sqrt(np.diag(cov))
+                        y_pred = a*x**3 + b*x**2 + c*x + d
+                        y_line = a*x_line**3 + b*x_line**2 + c*x_line + d
+                        
+                        a_str, a_err_str = format_sig_figs(a, da)
+                        b_str, b_err_str = format_sig_figs(b, db)
+                        c_str, c_err_str = format_sig_figs(c, dc)
+                        d_str, d_err_str = format_sig_figs(d, dd)
+                        
+                        st.info(f"**a (x³):** {a_str} ± {a_err_str}")
+                        st.info(f"**b (x²):** {b_str} ± {b_err_str}")
+                        st.info(f"**c (x):** {c_str} ± {c_err_str}")
+                        st.info(f"**d (const):** {d_str} ± {d_err_str}")
+                        st.latex(f"y = ({a_str})x^3 + ({b_str})x^2 + ({c_str})x + ({d_str})")
+                        fit_successful = True
+                        
                     elif "Exponential" in fit_type:
                         valid = y > 0
                         if np.sum(valid) > 2:
@@ -396,6 +433,27 @@ elif tool == "Graphical Analysis":
                         else:
                             st.error("Exponential fits require y values > 0.")
                             
+                    elif "Logarithmic" in fit_type:
+                        valid = x > 0
+                        if np.sum(valid) > 2:
+                            x_v, y_v = x[valid], y[valid]
+                            coeffs, cov = np.polyfit(np.log(x_v), y_v, 1, cov=True)
+                            A, B = coeffs
+                            dA, dB = np.sqrt(np.diag(cov))
+                            
+                            y_pred = A * np.log(x) + B
+                            y_line = A * np.log(x_line) + B
+                            
+                            A_str, A_err_str = format_sig_figs(A, dA)
+                            B_str, B_err_str = format_sig_figs(B, dB)
+                            
+                            st.info(f"**Coefficient (A):** {A_str} ± {A_err_str}")
+                            st.info(f"**Intercept (B):** {B_str} ± {B_err_str}")
+                            st.latex(f"y = ({A_str}) \\ln(x) + ({B_str})")
+                            fit_successful = True
+                        else:
+                            st.error("Logarithmic fits require x values > 0.")
+                            
                     elif "Power" in fit_type:
                         valid = (x > 0) & (y > 0)
                         if np.sum(valid) > 2:
@@ -418,6 +476,48 @@ elif tool == "Graphical Analysis":
                             fit_successful = True
                         else:
                             st.error("Power fits require x and y values > 0.")
+                            
+                    elif "Inverse Square" in fit_type:
+                        valid = x != 0
+                        if np.sum(valid) > 2:
+                            x_v, y_v = x[valid], y[valid]
+                            coeffs, cov = np.polyfit(1/(x_v**2), y_v, 1, cov=True)
+                            A, B = coeffs
+                            dA, dB = np.sqrt(np.diag(cov))
+                            
+                            y_pred = A/(x**2) + B
+                            y_line = A/(x_line**2) + B
+                            
+                            A_str, A_err_str = format_sig_figs(A, dA)
+                            B_str, B_err_str = format_sig_figs(B, dB)
+                            
+                            st.info(f"**Coefficient (A):** {A_str} ± {A_err_str}")
+                            st.info(f"**Intercept (B):** {B_str} ± {B_err_str}")
+                            st.latex(f"y = \\frac{{{A_str}}}{{x^2}} + ({B_str})")
+                            fit_successful = True
+                        else:
+                            st.error("Inverse Square fits require x values != 0.")
+                            
+                    elif "Inverse (" in fit_type:
+                        valid = x != 0
+                        if np.sum(valid) > 2:
+                            x_v, y_v = x[valid], y[valid]
+                            coeffs, cov = np.polyfit(1/x_v, y_v, 1, cov=True)
+                            A, B = coeffs
+                            dA, dB = np.sqrt(np.diag(cov))
+                            
+                            y_pred = A/x + B
+                            y_line = A/x_line + B
+                            
+                            A_str, A_err_str = format_sig_figs(A, dA)
+                            B_str, B_err_str = format_sig_figs(B, dB)
+                            
+                            st.info(f"**Coefficient (A):** {A_str} ± {A_err_str}")
+                            st.info(f"**Intercept (B):** {B_str} ± {B_err_str}")
+                            st.latex(f"y = \\frac{{{A_str}}}{{x}} + ({B_str})")
+                            fit_successful = True
+                        else:
+                            st.error("Inverse fits require x values != 0.")
                             
                 except Exception as e:
                     st.error("Fit failed. Please check your data distribution.")
