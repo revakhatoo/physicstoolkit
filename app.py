@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.subplots as plt
 import matplotlib.pyplot as plt
 import sympy as sp
 import io
@@ -77,6 +78,7 @@ if tool == "Reading based":
         
         if lc_mode == "Without Least Count (Simple)":
             default_data = pd.DataFrame({"Measurement (x)": [10.00, 20.50, 35.67, 27.30]})
+            default_data.index = range(1, len(default_data) + 1) # Start index at 1
             edited_df = st.data_editor(default_data, num_rows="dynamic", use_container_width=True)
             unit_input = st.text_input("Unit (optional)", "")
             
@@ -88,7 +90,6 @@ if tool == "Reading based":
                 std_error = std_dev / np.sqrt(len(clean_df))
                 
                 # Math logic for absolute/relative error
-                # Added 1e-9 to ensure perfectly reliable round-half-up formatting for boundary numbers like 8.1175
                 absolute_error = np.mean(np.abs(clean_df["Measurement (x)"] - mean_val)) + 1e-9 
                 relative_error = absolute_error / abs(mean_val) if mean_val != 0 else 0
                 pct_error = relative_error * 100
@@ -99,7 +100,6 @@ if tool == "Reading based":
                 
                 st.markdown("---")
                 
-                # --- MOVED TO LEFT: Standard Deviation and SE Derivations ---
                 st.markdown("##### Standard Deviation ($\\sigma$)")
                 st.latex(r"\sigma = \sqrt{\frac{\sum(x_i - \bar{x})^2}{n-1}} \approx " + f"{std_dev:.4g}")
                 with st.expander("Show Raw LaTeX for Standard Deviation"):
@@ -123,6 +123,7 @@ if tool == "Reading based":
                 "Main Scale Reading (MSR)": [2.4, 2.4, 2.4, 2.5],
                 "Vernier Scale Reading (VSR)": [5.0, 6.0, 4.0, 1.0]
             })
+            default_data.index = range(1, len(default_data) + 1) # Start index at 1
             edited_df = st.data_editor(default_data, num_rows="dynamic", use_container_width=True)
             
             clean_df = edited_df.dropna()
@@ -147,11 +148,11 @@ if tool == "Reading based":
         if lc_mode == "Without Least Count (Simple)":
             if not clean_df.empty and len(clean_df) > 1:
                 
-                # --- NEW: Updated Default Names ---
                 with st.expander("⚙️ Customize Table Headings"):
                     col1_name = st.text_input("Measurement Column", "Measurement (x)")
                     col2_name = st.text_input("Mean Column", "Mean (x̄)")
-                    col3_name = st.text_input("Absolute Error Column", "Absolute Error")
+                    # --- NEW: Added formula to default heading ---
+                    col3_name = st.text_input("Absolute Error Column", "Absolute Error (|x_i - x̄|)")
                     col4_name = st.text_input("Squared Error Column", "(Absolute Error)²")
                 
                 st.info("👉 **Mobile tip:** Swipe the table left and right to view all columns.")
@@ -159,10 +160,9 @@ if tool == "Reading based":
                 analysis_df = clean_df.copy()
                 analysis_df.rename(columns={"Measurement (x)": col1_name}, inplace=True)
                 analysis_df[col2_name] = mean_val
-                
-                # --- NEW: Applied Modulus Function ---
                 analysis_df[col3_name] = np.abs(analysis_df[col1_name] - mean_val)
                 analysis_df[col4_name] = analysis_df[col3_name]**2
+                analysis_df.index = range(1, len(analysis_df) + 1) # Force index to start at 1
                 
                 st.dataframe(analysis_df.style.format("{:.3f}"), use_container_width=True)
                 
@@ -171,7 +171,7 @@ if tool == "Reading based":
                 ax_tbl.axis('off')
                 ax_tbl.axis('tight')
                 display_data = analysis_df.round(3).astype(str)
-                tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, loc='center', cellLoc='center')
+                tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, rowLabels=display_data.index, loc='center', cellLoc='center')
                 tbl.scale(1, 1.5) 
                 
                 buf_tbl_png = io.BytesIO()
@@ -181,7 +181,7 @@ if tool == "Reading based":
                 
                 dl_col1, dl_col2, dl_col3 = st.columns(3)
                 with dl_col1:
-                    st.download_button(label="📥 Download CSV", data=analysis_df.to_csv(index=False).encode('utf-8'), file_name='error_analysis.csv', mime='text/csv')
+                    st.download_button(label="📥 Download CSV", data=analysis_df.to_csv(index=True).encode('utf-8'), file_name='error_analysis.csv', mime='text/csv')
                 with dl_col2:
                     st.download_button(label="📥 Download PNG", data=buf_tbl_png.getvalue(), file_name='error_analysis_table.png', mime='image/png')
                 with dl_col3:
@@ -189,11 +189,12 @@ if tool == "Reading based":
                 
                 st.markdown("---")
                 
-                # --- NEW: Error Working Block ---
+                # --- NEW: Inline formulas in Error Values ---
                 st.markdown("##### Error Values")
-                st.markdown(f"**Mean Absolute Error ($\\Delta x$):** {absolute_error:.4g} &nbsp; | &nbsp; **Relative Error:** {relative_error:.4g} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
+                st.markdown(f"* **Mean Absolute Error** ($\\Delta x = \\frac{{\\sum |x_i - \\bar{{x}}|}}{{n}}$): **{absolute_error:.4g}**")
+                st.markdown(f"* **Relative Error** ($\\frac{{\\Delta x}}{{\\bar{{x}}}}$): **{relative_error:.4g}**")
+                st.markdown(f"* **Percentage Error** (Relative Error $\\times 100\\%$): **{pct_error:.2f}%**")
                 
-                # Formatting array string for substitution
                 abs_err_vals = " + ".join([f"{v:.3g}" for v in analysis_df[col3_name]])
                 n_vals = len(clean_df)
                 
@@ -220,6 +221,7 @@ if tool == "Reading based":
                 
                 analysis_df = clean_df.copy()
                 analysis_df["Final Reading"] = analysis_df["Main Scale Reading (MSR)"] + (analysis_df["Vernier Scale Reading (VSR)"] * least_count)
+                analysis_df.index = range(1, len(analysis_df) + 1) # Force index to start at 1
                 
                 st.dataframe(analysis_df.style.format("{:.2f}"), use_container_width=True)
                 
@@ -228,7 +230,7 @@ if tool == "Reading based":
                 ax_tbl.axis('off')
                 ax_tbl.axis('tight')
                 display_data = analysis_df.round(2).astype(str)
-                tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, loc='center', cellLoc='center')
+                tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, rowLabels=display_data.index, loc='center', cellLoc='center')
                 tbl.scale(1, 1.5) 
                 
                 buf_tbl_png = io.BytesIO()
@@ -238,7 +240,7 @@ if tool == "Reading based":
                 
                 dl_col1, dl_col2, dl_col3 = st.columns(3)
                 with dl_col1:
-                    st.download_button(label="📥 Download CSV", data=analysis_df.to_csv(index=False).encode('utf-8'), file_name='least_count_analysis.csv', mime='text/csv')
+                    st.download_button(label="📥 Download CSV", data=analysis_df.to_csv(index=True).encode('utf-8'), file_name='least_count_analysis.csv', mime='text/csv')
                 with dl_col2:
                     st.download_button(label="📥 Download PNG", data=buf_tbl_png.getvalue(), file_name='least_count_analysis.png', mime='image/png')
                 with dl_col3:
@@ -249,13 +251,15 @@ if tool == "Reading based":
                 st.markdown("##### Final Reading Formula")
                 st.latex(r"\text{Final Reading} = \text{MSR} + (\text{VSR} \times \text{LC})")
                 
-                # Formatting array string for substitution
+                # --- NEW: Inline formulas in Error Values ---
+                st.markdown("##### Error Values")
+                st.markdown(f"* **Statistical Mean Absolute Error** ($\\Delta a_m = \\frac{{\\sum |x_i - \\bar{{x}}|}}{{n}}$): **{stat_mean_abs_error:.4g}**")
+                st.markdown(f"* **Final Absolute Error** ($\\Delta x = \\max(\\Delta a_m, LC)$): **{absolute_error:.4g}**")
+                st.markdown(f"* **Relative Error** ($\\frac{{\\Delta x}}{{\\bar{{x}}}}$): **{relative_error:.4g}**")
+                st.markdown(f"* **Percentage Error** (Relative Error $\\times 100\\%$): **{pct_error:.2f}%**")
+                
                 abs_err_vals_lc = " + ".join([f"{v:.3g}" for v in np.abs(analysis_df["Final Reading"] - mean_val)])
                 n_vals_lc = len(clean_df)
-                
-                st.markdown("##### Error Values")
-                st.markdown(f"**Statistical Mean Absolute Error:** {stat_mean_abs_error:.4g} &nbsp; | &nbsp; **Final Absolute Error ($\\Delta x$):** {absolute_error:.4g}")
-                st.markdown(f"**Relative Error:** {relative_error:.4g} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
                 
                 with st.expander("Show Raw LaTeX for Errors"):
                     st.code(r"""
@@ -300,6 +304,7 @@ elif tool == "Graphical Analysis":
             "X Values": [1.0, 2.0, 3.0, 4.0, 5.0],
             "Y Values": [2.1, 4.0, 6.2, 7.9, 10.1]
         })
+        graph_data.index = range(1, len(graph_data) + 1) # Start index at 1
         edited_graph_df = st.data_editor(graph_data, num_rows="dynamic", use_container_width=True)
         
         st.markdown("### Plot Labels & Legends")
