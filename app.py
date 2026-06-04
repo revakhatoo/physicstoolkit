@@ -84,20 +84,20 @@ if tool == "Reading based":
             
             if not clean_df.empty and len(clean_df) > 1:
                 mean_val = clean_df["Measurement (x)"].mean()
-                std_dev = clean_df["Measurement (x)"].std(ddof=1)
-                std_error = std_dev / np.sqrt(len(clean_df))
+                # Compute absolute errors for each individual reading |x_i - x_true|
+                abs_deviations = (clean_df["Measurement (x)"] - mean_val).abs()
+                mean_abs_error = abs_deviations.mean()
                 
-                # Math logic for absolute/relative error
-                absolute_error = std_error
+                # Assign values based on lab manual requirements
+                absolute_error = mean_abs_error
                 relative_error = absolute_error / abs(mean_val) if mean_val != 0 else 0
                 pct_error = relative_error * 100
                 
-                st.success(f"**Mean:** {mean_val:.4g}")
-                st.info(f"**Std Deviation ($\\sigma$):** {std_dev:.4g}")
-                st.info(f"**Standard Error ($\\pm$):** {std_error:.4g}")
+                st.success(f"**Mean ($\bar{{x}}$):** {mean_val:.2f}")
+                st.info(f"**Mean Absolute Error ($\Delta a_m$):** {mean_abs_error:.4g}")
             else:
                 st.warning("Please enter at least two data points.")
-                mean_val, std_dev, std_error, absolute_error, relative_error, pct_error = 0, 0, 0, 0, 0, 0
+                mean_val, mean_abs_error, absolute_error, relative_error, pct_error = 0, 0, 0, 0, 0
                 
         else: # WITH LEAST COUNT
             col_lc, col_unit = st.columns(2)
@@ -116,7 +116,7 @@ if tool == "Reading based":
                 temp_final = clean_df["Main Scale Reading (MSR)"] + (clean_df["Vernier Scale Reading (VSR)"] * least_count)
                 mean_val = temp_final.mean()
                 
-                # Math logic for absolute/relative error
+                # Under the manual guidelines, absolute error defaults strictly to Least Count limit
                 absolute_error = least_count
                 relative_error = absolute_error / abs(mean_val) if mean_val != 0 else 0
                 pct_error = relative_error * 100
@@ -133,24 +133,22 @@ if tool == "Reading based":
                 with st.expander("⚙️ Customize Table Headings"):
                     col1_name = st.text_input("Measurement Column", "Measurement (x)")
                     col2_name = st.text_input("Mean Column", "Mean (x̄)")
-                    col3_name = st.text_input("Deviation Column", "Deviation (x_i - x̄)")
-                    col4_name = st.text_input("Squared Deviation Column", "Squared Deviation ((x_i - x̄)²)")
+                    col3_name = st.text_input("Absolute Error Column", "Absolute Error (|Δx_i|)")
                 
                 st.info("👉 **Mobile tip:** Swipe the table left and right to view all columns.")
                 
                 analysis_df = clean_df.copy()
                 analysis_df.rename(columns={"Measurement (x)": col1_name}, inplace=True)
                 analysis_df[col2_name] = mean_val
-                analysis_df[col3_name] = analysis_df[col1_name] - mean_val
-                analysis_df[col4_name] = analysis_df[col3_name]**2
+                analysis_df[col3_name] = (analysis_df[col1_name] - mean_val).abs()
                 
-                st.dataframe(analysis_df.style.format("{:.3f}"), use_container_width=True)
+                st.dataframe(analysis_df.style.format("{:.2f}"), use_container_width=True)
                 
-                # PNG/PDF Export logic
+                # Export system
                 fig_tbl, ax_tbl = plt.subplots(figsize=(10, len(analysis_df) * 0.5 + 1))
                 ax_tbl.axis('off')
                 ax_tbl.axis('tight')
-                display_data = analysis_df.round(3).astype(str)
+                display_data = analysis_df.round(2).astype(str)
                 tbl = ax_tbl.table(cellText=display_data.values, colLabels=display_data.columns, loc='center', cellLoc='center')
                 tbl.scale(1, 1.5) 
                 
@@ -169,25 +167,22 @@ if tool == "Reading based":
                 
                 st.markdown("---")
                 
-                st.markdown("##### Standard Deviation ($\\sigma$)")
-                st.latex(r"\sigma = \sqrt{\frac{\sum(x_i - \bar{x})^2}{n-1}} \approx " + f"{std_dev:.4g}")
+                st.markdown("##### Mean Absolute Error Formula")
+                st.latex(r"\Delta a_m = \frac{\sum |x_i - \bar{x}|}{n} \approx " + f"{mean_abs_error:.2f}")
                 
-                st.markdown("##### Standard Error (SE)")
-                st.latex(r"SE = \frac{\sigma}{\sqrt{n}} \approx " + f"{std_error:.4g}")
-                
-                st.markdown("##### Error Values")
-                st.markdown(f"**Absolute Error ($\\Delta x$):** {absolute_error:.4g} &nbsp; | &nbsp; **Relative Error:** {relative_error:.4g} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
+                st.markdown("##### Error Working Breakdown")
+                st.markdown(f"**Absolute Error ($\\Delta x$):** {absolute_error:.2f} &nbsp; | &nbsp; **Relative Error:** {relative_error:.4f} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
                 
                 with st.expander("Show Raw LaTeX for Errors"):
                     st.code(r"""
-\Delta x = |x_{\text{measured}} - x_{\text{true}}| \approx SE \approx """ + f"{absolute_error:.4g}" + r""" \\
-\text{Relative Error} = \frac{\Delta x}{x_{\text{true}}} = \frac{""" + f"{absolute_error:.4g}" + r"""}{""" + f"{abs(mean_val):.4g}" + r"""} \approx """ + f"{relative_error:.4g}" + r""" \\
-\text{Percentage Error} = \text{Relative Error} \times 100\% = """ + f"{relative_error:.4g}" + r""" \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
+\Delta x = \Delta a_m = """ + f"{absolute_error:.2f}" + r""" \\
+\text{Relative Error} = \frac{\Delta x}{x_{\text{true}}} = \frac{""" + f"{absolute_error:.2f}" + r"""}{""" + f"{abs(mean_val):.2f}" + r"""} \approx """ + f"{relative_error:.4f}" + r""" \\
+\text{Percentage Error} = \text{Relative Error} \times 100\% = """ + f"{relative_error:.4f}" + r""" \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
                     """, language="latex")
                 
                 st.markdown("##### Final Reported Result:")
-                val_str = f"{mean_val:.4g}"
-                unc_str = f"{std_error:.4g}"
+                val_str = f"{mean_val:.2f}"
+                unc_str = f"{absolute_error:.2f}"
                 unit_str = f" {unit_input}" if unit_input else ""
                 latex_unit = f" \\text{{ {unit_input}}}" if unit_input else ""
                 
@@ -204,7 +199,7 @@ if tool == "Reading based":
                 
                 st.dataframe(analysis_df.style.format("{:.2f}"), use_container_width=True)
                 
-                # PNG/PDF Export logic
+                # Export system
                 fig_tbl, ax_tbl = plt.subplots(figsize=(10, len(analysis_df) * 0.5 + 1))
                 ax_tbl.axis('off')
                 ax_tbl.axis('tight')
@@ -230,21 +225,21 @@ if tool == "Reading based":
                 st.markdown("##### Final Reading Formula")
                 st.latex(r"\text{Final Reading} = \text{MSR} + (\text{VSR} \times \text{LC})")
                 
-                st.markdown("##### Error Values")
-                st.markdown(f"**Absolute Error ($\\Delta x$):** {absolute_error:.4g} &nbsp; | &nbsp; **Relative Error:** {relative_error:.4g} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
+                st.markdown("##### Error Working Breakdown")
+                st.markdown(f"**Absolute Error ($\\Delta x$):** {absolute_error:.4g} &nbsp; | &nbsp; **Relative Error:** {relative_error:.4f} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
                 
                 with st.expander("Show Raw LaTeX for Errors"):
                     st.code(r"""
 \Delta x = |x_{\text{measured}} - x_{\text{true}}| \approx LC = """ + f"{absolute_error:.4g}" + r""" \\
-\text{Relative Error} = \frac{\Delta x}{x_{\text{true}}} = \frac{""" + f"{absolute_error:.4g}" + r"""}{""" + f"{abs(mean_val):.4g}" + r"""} \approx """ + f"{relative_error:.4g}" + r""" \\
-\text{Percentage Error} = \text{Relative Error} \times 100\% = """ + f"{relative_error:.4g}" + r""" \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
+\text{Relative Error} = \frac{\Delta x}{x_{\text{true}}} = \frac{""" + f"{absolute_error:.4g}" + r"""}{""" + f"{abs(mean_val):.2f}" + r"""} \approx """ + f"{relative_error:.4f}" + r""" \\
+\text{Percentage Error} = \text{Relative Error} \times 100\% = """ + f"{relative_error:.4f}" + r""" \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
                     """, language="latex")
                 
                 st.markdown("##### Final Reported Result:")
                 st.markdown("*Note: The final absolute error is defined by the instrument's Least Count limit.*")
                 
                 val_str = f"{mean_val:.2f}"
-                unc_str = f"{least_count:.4g}"
+                unc_str = f"{absolute_error:.4g}"
                 unit_str = f" {unit_input}" if unit_input else ""
                 latex_unit = f" \\text{{ {unit_input}}}" if unit_input else ""
                 
