@@ -87,15 +87,19 @@ if tool == "Reading based":
                 std_dev = clean_df["Measurement (x)"].std(ddof=1)
                 std_error = std_dev / np.sqrt(len(clean_df))
                 
+                # Math logic for absolute/relative error
+                absolute_error = std_error
+                relative_error = absolute_error / abs(mean_val) if mean_val != 0 else 0
+                pct_error = relative_error * 100
+                
                 st.success(f"**Mean:** {mean_val:.4g}")
                 st.info(f"**Std Deviation ($\\sigma$):** {std_dev:.4g}")
                 st.info(f"**Standard Error ($\\pm$):** {std_error:.4g}")
             else:
                 st.warning("Please enter at least two data points.")
-                mean_val, std_dev, std_error = 0, 0, 0
+                mean_val, std_dev, std_error, absolute_error, relative_error, pct_error = 0, 0, 0, 0, 0, 0
                 
         else: # WITH LEAST COUNT
-            # LC is now extracted from the table into a clean universal input box
             col_lc, col_unit = st.columns(2)
             least_count = col_lc.number_input("Least Count", value=0.01, min_value=0.0, format="%.4f")
             unit_input = col_unit.text_input("Unit (optional)", "cm")
@@ -109,15 +113,19 @@ if tool == "Reading based":
             clean_df = edited_df.dropna()
             
             if not clean_df.empty and len(clean_df) > 0:
-                # Calculate Final Reading for the preview
                 temp_final = clean_df["Main Scale Reading (MSR)"] + (clean_df["Vernier Scale Reading (VSR)"] * least_count)
                 mean_val = temp_final.mean()
+                
+                # Math logic for absolute/relative error
+                absolute_error = least_count
+                relative_error = absolute_error / abs(mean_val) if mean_val != 0 else 0
+                pct_error = relative_error * 100
                 
                 st.success(f"**Average Final Reading:** {mean_val:.2f}")
                 st.info(f"**Least Count ($\\pm$):** {least_count:.4g}")
             else:
                 st.warning("Please enter at least one data point.")
-                mean_val = 0
+                mean_val, absolute_error, relative_error, pct_error = 0, 0, 0, 0
         
     with display_col:
         if lc_mode == "Without Least Count (Simple)":
@@ -167,9 +175,20 @@ if tool == "Reading based":
                 st.markdown("##### Standard Error (SE)")
                 st.latex(r"SE = \frac{\sigma}{\sqrt{n}} \approx " + f"{std_error:.4g}")
                 
+                # --- NEW: Relative and Absolute Error Block ---
+                st.markdown("##### Error Values")
+                st.markdown(f"**Absolute Error ($\\Delta x$):** {absolute_error:.4g} &nbsp; | &nbsp; **Relative Error:** {relative_error:.4g} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
+                
+                with st.expander("Show Raw LaTeX for Errors"):
+                    st.code(r"""
+\Delta x = SE \approx """ + f"{absolute_error:.4g}" + r""" \\
+E_{rel} = \frac{\Delta x}{\bar{x}} \approx """ + f"{relative_error:.4g}" + r""" \\
+E_{\%} = E_{rel} \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
+                    """, language="latex")
+                
                 st.markdown("##### Final Reported Result:")
                 val_str = f"{mean_val:.4g}"
-                unc_str = f"{std_error:.4g}"
+                unc_str = f"{absolute_error:.4g}"
                 unit_str = f" {unit_input}" if unit_input else ""
                 latex_unit = f" \\text{{ {unit_input}}}" if unit_input else ""
                 
@@ -182,10 +201,8 @@ if tool == "Reading based":
                 st.info("👉 **Mobile tip:** Swipe the table left and right to view all columns.")
                 
                 analysis_df = clean_df.copy()
-                # Automatically calculate the Final Reading column using the single Least Count value
                 analysis_df["Final Reading"] = analysis_df["Main Scale Reading (MSR)"] + (analysis_df["Vernier Scale Reading (VSR)"] * least_count)
                 
-                # Format to exactly 2 decimal places as requested
                 st.dataframe(analysis_df.style.format("{:.2f}"), use_container_width=True)
                 
                 # PNG/PDF Export logic
@@ -214,12 +231,22 @@ if tool == "Reading based":
                 st.markdown("##### Final Reading Formula")
                 st.latex(r"\text{Final Reading} = \text{MSR} + (\text{VSR} \times \text{LC})")
                 
-                st.markdown("##### Final Reported Result:")
-                st.markdown("*Note: The final uncertainty is defined by the instrument's Least Count limit.*")
+                # --- NEW: Relative and Absolute Error Block ---
+                st.markdown("##### Error Values")
+                st.markdown(f"**Absolute Error ($\\Delta x$):** {absolute_error:.4g} &nbsp; | &nbsp; **Relative Error:** {relative_error:.4g} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
                 
-                # Locked to 2 decimal places to match the table
+                with st.expander("Show Raw LaTeX for Errors"):
+                    st.code(r"""
+\Delta x = LC = """ + f"{absolute_error:.4g}" + r""" \\
+E_{rel} = \frac{\Delta x}{\bar{x}} \approx """ + f"{relative_error:.4g}" + r""" \\
+E_{\%} = E_{rel} \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
+                    """, language="latex")
+                
+                st.markdown("##### Final Reported Result:")
+                st.markdown("*Note: The final absolute error is defined by the instrument's Least Count limit.*")
+                
                 val_str = f"{mean_val:.2f}"
-                unc_str = f"{least_count:.4g}"
+                unc_str = f"{absolute_error:.4g}"
                 unit_str = f" {unit_input}" if unit_input else ""
                 latex_unit = f" \\text{{ {unit_input}}}" if unit_input else ""
                 
