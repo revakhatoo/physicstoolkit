@@ -175,20 +175,19 @@ if tool == "Reading based":
                 st.markdown("##### Standard Error (SE)")
                 st.latex(r"SE = \frac{\sigma}{\sqrt{n}} \approx " + f"{std_error:.4g}")
                 
-                # --- NEW: Relative and Absolute Error Block ---
                 st.markdown("##### Error Values")
                 st.markdown(f"**Absolute Error ($\\Delta x$):** {absolute_error:.4g} &nbsp; | &nbsp; **Relative Error:** {relative_error:.4g} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
                 
                 with st.expander("Show Raw LaTeX for Errors"):
                     st.code(r"""
-\Delta x = SE \approx """ + f"{absolute_error:.4g}" + r""" \\
-E_{rel} = \frac{\Delta x}{\bar{x}} \approx """ + f"{relative_error:.4g}" + r""" \\
-E_{\%} = E_{rel} \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
+\Delta x = |x_{\text{measured}} - x_{\text{true}}| \approx SE \approx """ + f"{absolute_error:.4g}" + r""" \\
+\text{Relative Error} = \frac{\Delta x}{x_{\text{true}}} = \frac{""" + f"{absolute_error:.4g}" + r"""}{""" + f"{abs(mean_val):.4g}" + r"""} \approx """ + f"{relative_error:.4g}" + r""" \\
+\text{Percentage Error} = \text{Relative Error} \times 100\% = """ + f"{relative_error:.4g}" + r""" \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
                     """, language="latex")
                 
                 st.markdown("##### Final Reported Result:")
                 val_str = f"{mean_val:.4g}"
-                unc_str = f"{absolute_error:.4g}"
+                unc_str = f"{std_error:.4g}"
                 unit_str = f" {unit_input}" if unit_input else ""
                 latex_unit = f" \\text{{ {unit_input}}}" if unit_input else ""
                 
@@ -231,22 +230,21 @@ E_{\%} = E_{rel} \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
                 st.markdown("##### Final Reading Formula")
                 st.latex(r"\text{Final Reading} = \text{MSR} + (\text{VSR} \times \text{LC})")
                 
-                # --- NEW: Relative and Absolute Error Block ---
                 st.markdown("##### Error Values")
                 st.markdown(f"**Absolute Error ($\\Delta x$):** {absolute_error:.4g} &nbsp; | &nbsp; **Relative Error:** {relative_error:.4g} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
                 
                 with st.expander("Show Raw LaTeX for Errors"):
                     st.code(r"""
-\Delta x = LC = """ + f"{absolute_error:.4g}" + r""" \\
-E_{rel} = \frac{\Delta x}{\bar{x}} \approx """ + f"{relative_error:.4g}" + r""" \\
-E_{\%} = E_{rel} \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
+\Delta x = |x_{\text{measured}} - x_{\text{true}}| \approx LC = """ + f"{absolute_error:.4g}" + r""" \\
+\text{Relative Error} = \frac{\Delta x}{x_{\text{true}}} = \frac{""" + f"{absolute_error:.4g}" + r"""}{""" + f"{abs(mean_val):.4g}" + r"""} \approx """ + f"{relative_error:.4g}" + r""" \\
+\text{Percentage Error} = \text{Relative Error} \times 100\% = """ + f"{relative_error:.4g}" + r""" \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
                     """, language="latex")
                 
                 st.markdown("##### Final Reported Result:")
                 st.markdown("*Note: The final absolute error is defined by the instrument's Least Count limit.*")
                 
                 val_str = f"{mean_val:.2f}"
-                unc_str = f"{absolute_error:.4g}"
+                unc_str = f"{least_count:.4g}"
                 unit_str = f" {unit_input}" if unit_input else ""
                 latex_unit = f" \\text{{ {unit_input}}}" if unit_input else ""
                 
