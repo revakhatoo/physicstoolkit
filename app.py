@@ -87,14 +87,29 @@ if tool == "Reading based":
                 std_dev = clean_df["Measurement (x)"].std(ddof=1)
                 std_error = std_dev / np.sqrt(len(clean_df))
                 
-                # --- NEW: Mean Absolute Error Logic (Case A) ---
-                absolute_error = np.mean(np.abs(clean_df["Measurement (x)"] - mean_val))
+                # Math logic for absolute/relative error
+                # Added 1e-9 to ensure perfectly reliable round-half-up formatting for boundary numbers like 8.1175
+                absolute_error = np.mean(np.abs(clean_df["Measurement (x)"] - mean_val)) + 1e-9 
                 relative_error = absolute_error / abs(mean_val) if mean_val != 0 else 0
                 pct_error = relative_error * 100
                 
                 st.success(f"**Mean:** {mean_val:.4g}")
                 st.info(f"**Std Deviation ($\\sigma$):** {std_dev:.4g}")
                 st.info(f"**Standard Error ($\\pm$):** {std_error:.4g}")
+                
+                st.markdown("---")
+                
+                # --- MOVED TO LEFT: Standard Deviation and SE Derivations ---
+                st.markdown("##### Standard Deviation ($\\sigma$)")
+                st.latex(r"\sigma = \sqrt{\frac{\sum(x_i - \bar{x})^2}{n-1}} \approx " + f"{std_dev:.4g}")
+                with st.expander("Show Raw LaTeX for Standard Deviation"):
+                    st.code(r"\sigma = \sqrt{\frac{\sum(x_i - \bar{x})^2}{n-1}}", language="latex")
+
+                st.markdown("##### Standard Error (SE)")
+                st.latex(r"SE = \frac{\sigma}{\sqrt{n}} \approx " + f"{std_error:.4g}")
+                with st.expander("Show Raw LaTeX for Standard Error"):
+                    st.code(r"SE = \frac{\sigma}{\sqrt{n}}", language="latex")
+                    
             else:
                 st.warning("Please enter at least two data points.")
                 mean_val, std_dev, std_error, absolute_error, relative_error, pct_error = 0, 0, 0, 0, 0, 0
@@ -116,33 +131,37 @@ if tool == "Reading based":
                 temp_final = clean_df["Main Scale Reading (MSR)"] + (clean_df["Vernier Scale Reading (VSR)"] * least_count)
                 mean_val = temp_final.mean()
                 
-                # --- NEW: Max(MAE, LC) Logic (Case B) ---
-                stat_mean_abs_error = np.mean(np.abs(temp_final - mean_val))
+                # Math logic for absolute/relative error
+                stat_mean_abs_error = np.mean(np.abs(temp_final - mean_val)) + 1e-9
                 absolute_error = max(stat_mean_abs_error, least_count)
                 relative_error = absolute_error / abs(mean_val) if mean_val != 0 else 0
                 pct_error = relative_error * 100
                 
                 st.success(f"**Average Final Reading:** {mean_val:.2f}")
-                st.info(f"**Least Count ($\\pm$):** {least_count:.4g}")
+                st.info(f"**Least Count:** {least_count:.4g}")
             else:
                 st.warning("Please enter at least one data point.")
-                mean_val, stat_mean_abs_error, absolute_error, relative_error, pct_error = 0, 0, 0, 0, 0
+                mean_val, absolute_error, relative_error, pct_error, stat_mean_abs_error = 0, 0, 0, 0, 0
         
     with display_col:
         if lc_mode == "Without Least Count (Simple)":
             if not clean_df.empty and len(clean_df) > 1:
+                
+                # --- NEW: Updated Default Names ---
                 with st.expander("⚙️ Customize Table Headings"):
                     col1_name = st.text_input("Measurement Column", "Measurement (x)")
                     col2_name = st.text_input("Mean Column", "Mean (x̄)")
-                    col3_name = st.text_input("Deviation Column", "Deviation (x_i - x̄)")
-                    col4_name = st.text_input("Squared Deviation Column", "Squared Deviation ((x_i - x̄)²)")
+                    col3_name = st.text_input("Absolute Error Column", "Absolute Error")
+                    col4_name = st.text_input("Squared Error Column", "(Absolute Error)²")
                 
                 st.info("👉 **Mobile tip:** Swipe the table left and right to view all columns.")
                 
                 analysis_df = clean_df.copy()
                 analysis_df.rename(columns={"Measurement (x)": col1_name}, inplace=True)
                 analysis_df[col2_name] = mean_val
-                analysis_df[col3_name] = analysis_df[col1_name] - mean_val
+                
+                # --- NEW: Applied Modulus Function ---
+                analysis_df[col3_name] = np.abs(analysis_df[col1_name] - mean_val)
                 analysis_df[col4_name] = analysis_df[col3_name]**2
                 
                 st.dataframe(analysis_df.style.format("{:.3f}"), use_container_width=True)
@@ -170,19 +189,17 @@ if tool == "Reading based":
                 
                 st.markdown("---")
                 
-                st.markdown("##### Standard Deviation ($\\sigma$)")
-                st.latex(r"\sigma = \sqrt{\frac{\sum(x_i - \bar{x})^2}{n-1}} \approx " + f"{std_dev:.4g}")
-                
-                st.markdown("##### Standard Error (SE)")
-                st.latex(r"SE = \frac{\sigma}{\sqrt{n}} \approx " + f"{std_error:.4g}")
-                
-                # --- NEW: MAE Relative and Absolute Error Block ---
+                # --- NEW: Error Working Block ---
                 st.markdown("##### Error Values")
                 st.markdown(f"**Mean Absolute Error ($\\Delta x$):** {absolute_error:.4g} &nbsp; | &nbsp; **Relative Error:** {relative_error:.4g} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
                 
+                # Formatting array string for substitution
+                abs_err_vals = " + ".join([f"{v:.3g}" for v in analysis_df[col3_name]])
+                n_vals = len(clean_df)
+                
                 with st.expander("Show Raw LaTeX for Errors"):
                     st.code(r"""
-\Delta x = \frac{\sum |x_i - \bar{x}|}{n} = """ + f"{absolute_error:.4g}" + r""" \\
+\Delta x = \frac{\sum |x_i - \bar{x}|}{n} = \frac{""" + abs_err_vals + r"""}{""" + str(n_vals) + r"""} \approx """ + f"{absolute_error:.4g}" + r""" \\
 \text{Relative Error} = \frac{\Delta x}{\bar{x}} = \frac{""" + f"{absolute_error:.4g}" + r"""}{""" + f"{abs(mean_val):.4g}" + r"""} \approx """ + f"{relative_error:.4g}" + r""" \\
 \text{Percentage Error} = \text{Relative Error} \times 100\% = """ + f"{relative_error:.4g}" + r""" \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
                     """, language="latex")
@@ -232,14 +249,17 @@ if tool == "Reading based":
                 st.markdown("##### Final Reading Formula")
                 st.latex(r"\text{Final Reading} = \text{MSR} + (\text{VSR} \times \text{LC})")
                 
-                # --- NEW: MAE vs LC Comparison Block ---
+                # Formatting array string for substitution
+                abs_err_vals_lc = " + ".join([f"{v:.3g}" for v in np.abs(analysis_df["Final Reading"] - mean_val)])
+                n_vals_lc = len(clean_df)
+                
                 st.markdown("##### Error Values")
                 st.markdown(f"**Statistical Mean Absolute Error:** {stat_mean_abs_error:.4g} &nbsp; | &nbsp; **Final Absolute Error ($\\Delta x$):** {absolute_error:.4g}")
                 st.markdown(f"**Relative Error:** {relative_error:.4g} &nbsp; | &nbsp; **Percentage Error:** {pct_error:.2f}%")
                 
                 with st.expander("Show Raw LaTeX for Errors"):
                     st.code(r"""
-\text{Statistical } \Delta a_m = \frac{\sum |x_i - \bar{x}|}{n} = """ + f"{stat_mean_abs_error:.4g}" + r""" \\
+\text{Statistical } \Delta a_m = \frac{\sum |x_i - \bar{x}|}{n} = \frac{""" + abs_err_vals_lc + r"""}{""" + str(n_vals_lc) + r"""} \approx """ + f"{stat_mean_abs_error:.4g}" + r""" \\
 \Delta x = \max(\Delta a_m, LC) = \max(""" + f"{stat_mean_abs_error:.4g}" + r""", """ + f"{least_count:.4g}" + r""") = """ + f"{absolute_error:.4g}" + r""" \\
 \text{Relative Error} = \frac{\Delta x}{\bar{x}} = \frac{""" + f"{absolute_error:.4g}" + r"""}{""" + f"{abs(mean_val):.4g}" + r"""} \approx """ + f"{relative_error:.4g}" + r""" \\
 \text{Percentage Error} = \text{Relative Error} \times 100\% = """ + f"{relative_error:.4g}" + r""" \times 100\% \approx """ + f"{pct_error:.2f}" + r"""\%
